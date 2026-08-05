@@ -294,8 +294,8 @@
                     <h2 style="color: #1e3c72; margin-bottom: 20px;">📋 Методика деления</h2>
 
                     <h3 style="color: #1e3c72; margin-top: 25px; margin-bottom: 15px;">🎯 Приоритеты деления</h3>
-                    <p><strong>1️⃣ КЛЮЧЕВОЙ (Главный):</strong> Равное количество игроков в каждой команде</p>
-                    <p style="margin-left: 20px; color: #666;">→ 15 игроков ÷ 3 команды = по 5 игроков в каждой</p>
+                    <p><strong>1️⃣ КЛЮЧЕВОЙ (Главный):</strong> Максимально равное количество игроков в каждой команде</p>
+                    <p style="margin-left: 20px; color: #666;">→ Делить нацело не обязательно: остаток распределяется по одному игроку на команды<br>→ 15 игроков ÷ 3 команды = по 5 игроков в каждой<br>→ 9 игроков ÷ 2 команды = 5 + 4 игрока</p>
 
                     <p><strong>2️⃣ ВТОРИЧНЫЙ (Баланс состава):</strong></p>
                     <ul style="margin-left: 40px; color: #666;">
@@ -316,7 +316,7 @@
 
                     <h3 style="color: #1e3c72; margin-top: 25px; margin-bottom: 15px;">✅ Конечный результат</h3>
                     <ul style="margin-left: 40px; color: #666;">
-                        <li>Каждая команда: ровно 5 игроков</li>
+                        <li>Команды отличаются по размеру не более чем на 1 игрока</li>
                         <li>Каждая команда: 1 вратарь (GK или pos2=GK)</li>
                         <li>Каждая команда: минимум 1 ST (pos1=ST или pos2=ST)</li>
                         <li>Максимум 3 с одинаковым набором позиций</li>
@@ -762,19 +762,24 @@
                 return;
             }
 
-            if (players.length % teamCount !== 0) {
-                msgDiv.innerHTML += `<div class="message error-message">❌ ${players.length} не делится на ${teamCount}</div>`;
+            if (players.length < teamCount) {
+                msgDiv.innerHTML += `<div class="message error-message">❌ Игроков (${players.length}) меньше, чем команд (${teamCount})</div>`;
                 return;
             }
 
             const result = window.smartDivide(players, teamCount);
             const optimized = window.optimizeTeamBalance(result);
-            msgDiv.innerHTML = `<div class="message success-message">✓ Распределены ${players.length} игроков на ${teamCount} команд</div>`;
+            const sizes = optimized.map(t => t.players.length).join('+');
+            msgDiv.innerHTML = `<div class="message success-message">✓ Распределены ${players.length} игроков на ${teamCount} команд (${sizes})</div>`;
             window.displayResults(optimized);
         };
 
         window.smartDivide = function(players, teamCount) {
-            const playersPerTeam = players.length / teamCount;
+            // Игроки делятся максимально равномерно: остаток от деления
+            // распределяется по одному игроку на первые команды.
+            // Например, 9 игроков на 2 команды → 5 + 4.
+            const baseSize = Math.floor(players.length / teamCount);
+            const extraSlots = players.length % teamCount;
 
             // ЭТАП 1: Группируем вратарей (профильных и вторичных)
             const gkPrimary = players.filter(p => p.pos1 === 'GK').sort((a, b) => b.totalRating - a.totalRating);
@@ -795,15 +800,15 @@
                 positionGroups[key].sort((a, b) => b.totalRating - a.totalRating);
             });
 
-            // ЭТАП 3: Инициализируем команды
-            const teams = Array(teamCount).fill(null).map(() => ({
+            // ЭТАП 3: Инициализируем команды (первые extraSlots команд получают +1 игрока)
+            const teams = Array(teamCount).fill(null).map((_, i) => ({
                 players: [],
                 totalRating: 0,
                 def: 0, mid: 0, st: 0,
                 gk: 0,
                 positionSets: {},
                 totalEndurance: 0,
-                slotsLeft: playersPerTeam
+                slotsLeft: baseSize + (i < extraSlots ? 1 : 0)
             }));
 
             const usedPlayers = new Set();
