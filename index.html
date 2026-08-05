@@ -1,0 +1,1150 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Football Heroes - Умное деление на команды</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        .container {
+            max-width: 1600px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            overflow: hidden;
+        }
+        .header {
+            background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+        .header h1 { font-size: 32px; margin-bottom: 8px; }
+        .header p { opacity: 0.9; }
+        .content { padding: 30px; }
+        .tabs {
+            display: flex;
+            border-bottom: 2px solid #e0e0e0;
+            margin-bottom: 30px;
+            flex-wrap: wrap;
+        }
+        .tab {
+            padding: 12px 20px;
+            cursor: pointer;
+            border: none;
+            background: none;
+            font-weight: 500;
+            color: #999;
+            transition: all 0.2s;
+            font-size: 14px;
+        }
+        .tab.active {
+            color: #1e3c72;
+            border-bottom: 3px solid #1e3c72;
+            margin-bottom: -2px;
+        }
+        .tab:hover { color: #1e3c72; }
+        .tab-content { display: none; }
+        .tab-content.active { display: block; }
+        .input-section {
+            background: #f5f5f5;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 30px;
+        }
+        .input-row { margin-bottom: 15px; }
+        label {
+            display: block;
+            font-weight: 600;
+            margin-bottom: 8px;
+            color: #333;
+        }
+        textarea, input, select {
+            width: 100%;
+            padding: 12px;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            font-size: 14px;
+            font-family: inherit;
+        }
+        textarea {
+            min-height: 120px;
+            font-family: monospace;
+            resize: vertical;
+        }
+        .input-helper {
+            font-size: 11px;
+            color: #666;
+            margin-top: 5px;
+            font-style: italic;
+        }
+        .button-group {
+            display: flex;
+            gap: 10px;
+            margin-top: 20px;
+            flex-wrap: wrap;
+        }
+        button {
+            padding: 12px 20px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: 600;
+            font-size: 14px;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+        .btn-primary {
+            background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+            color: white;
+        }
+        .btn-primary:hover { transform: translateY(-2px); box-shadow: 0 5px 15px rgba(30, 60, 114, 0.4); }
+        .btn-secondary {
+            background: #e0e0e0;
+            color: #333;
+        }
+        .btn-secondary:hover { transform: translateY(-2px); box-shadow: 0 5px 15px rgba(0,0,0,0.1); }
+        .message {
+            padding: 15px;
+            border-radius: 6px;
+            margin-bottom: 15px;
+            border-left: 4px solid;
+        }
+        .error-message { background: #ffebee; color: #c62828; border-color: #c62828; }
+        .success-message { background: #e8f5e9; color: #2e7d32; border-color: #2e7d32; }
+        .warning-message { background: #fff3e0; color: #e65100; border-color: #ff9800; }
+        .balance-summary {
+            background: #f5f5f5;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 30px;
+        }
+        .balance-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+            gap: 15px;
+            margin-top: 15px;
+        }
+        .balance-box {
+            background: white;
+            padding: 12px;
+            border-radius: 6px;
+            text-align: center;
+            border-left: 4px solid #1e3c72;
+        }
+        .balance-label { font-size: 11px; color: #666; text-transform: uppercase; font-weight: 600; }
+        .balance-value { font-size: 18px; font-weight: 600; color: #1e3c72; margin-top: 5px; }
+        .teams-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(360px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+        .team-card {
+            border: 3px solid #ddd;
+            border-radius: 8px;
+            padding: 20px;
+            background: #f9f9f9;
+        }
+        .team-card.team1 { border-color: #4CAF50; background: rgba(76, 175, 80, 0.05); }
+        .team-card.team2 { border-color: #2196F3; background: rgba(33, 150, 243, 0.05); }
+        .team-card.team3 { border-color: #FF9800; background: rgba(255, 152, 0, 0.05); }
+        .team-card.team4 { border-color: #E91E63; background: rgba(233, 30, 99, 0.05); }
+        .team-card.team5 { border-color: #9C27B0; background: rgba(156, 39, 176, 0.05); }
+        .team-header {
+            font-size: 18px;
+            font-weight: 600;
+            margin-bottom: 15px;
+            padding-bottom: 10px;
+            border-bottom: 2px solid;
+        }
+        .team-card.team1 .team-header { color: #4CAF50; border-color: #4CAF50; }
+        .team-card.team2 .team-header { color: #2196F3; border-color: #2196F3; }
+        .team-card.team3 .team-header { color: #FF9800; border-color: #FF9800; }
+        .team-card.team4 .team-header { color: #E91E63; border-color: #E91E63; }
+        .team-card.team5 .team-header { color: #9C27B0; border-color: #9C27B0; }
+        .player-list { list-style: none; }
+        .player-item {
+            background: white;
+            padding: 10px;
+            margin-bottom: 6px;
+            border-radius: 4px;
+            border-left: 4px solid;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 12px;
+        }
+        .team-card.team1 .player-item { border-color: #4CAF50; }
+        .team-card.team2 .player-item { border-color: #2196F3; }
+        .team-card.team3 .player-item { border-color: #FF9800; }
+        .team-card.team4 .player-item { border-color: #E91E63; }
+        .team-card.team5 .player-item { border-color: #9C27B0; }
+        .player-name { font-weight: 600; }
+        .player-stats {
+            display: flex;
+            gap: 6px;
+            align-items: center;
+        }
+        .pos-badge {
+            background: #f0f0f0;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-weight: 700;
+            font-size: 10px;
+        }
+        .pos-badge.secondary-badge {
+            background: rgba(0, 0, 0, 0.08);
+            color: #666;
+            font-weight: 600;
+            border: 1px solid rgba(0, 0, 0, 0.1);
+        }
+        .rating-badge {
+            background: #f0f0f0;
+            padding: 3px 8px;
+            border-radius: 3px;
+            font-weight: 600;
+            min-width: 45px;
+            text-align: right;
+        }
+        .team-stats {
+            margin-top: 15px;
+            padding-top: 15px;
+            border-top: 1px solid #ddd;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            font-size: 11px;
+        }
+        .stat-row {
+            display: flex;
+            justify-content: space-between;
+        }
+        .stat-label { color: #666; font-weight: 500; }
+        .stat-value { font-weight: 600; color: #1e3c72; }
+        .formation {
+            text-align: center;
+            font-weight: 600;
+            color: #1e3c72;
+            margin-top: 10px;
+            padding: 8px;
+            background: white;
+            border-radius: 4px;
+            font-size: 12px;
+        }
+        @media (max-width: 768px) {
+            .teams-grid { grid-template-columns: 1fr; }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>⚽ Football Heroes</h1>
+            <p>Умное деление на команды с учетом позиций</p>
+        </div>
+
+        <div class="content">
+            <div class="tabs">
+                <button class="tab active" onclick="window.switchTab('input')">⚙️ Деление</button>
+                <button class="tab" onclick="window.switchTab('stats')">📊 Статистика игроков</button>
+                <button class="tab" onclick="window.switchTab('method')">📋 Методика</button>
+            </div>
+
+            <div id="input" class="tab-content active">
+                <div class="input-section">
+                    <div class="input-row">
+                        <label>👥 Список игроков (по одному на строку):</label>
+                        <textarea id="playersList" placeholder="Олег Сильченко&#10;Паша Тренин&#10;Дима Князев&#10;..."></textarea>
+                        <div class="input-helper">Введите имена через Enter</div>
+                    </div>
+
+                    <div class="input-row" style="max-width: 300px;">
+                        <label>🎯 Количество команд:</label>
+                        <select id="teamCount">
+                            <option value="2">2 команды</option>
+                            <option value="3">3 команды</option>
+                            <option value="4">4 команды</option>
+                            <option value="5">5 команд</option>
+                        </select>
+                    </div>
+
+                    <div class="button-group">
+                        <button class="btn-primary" onclick="window.divideTeams()">⚡ Умное деление</button>
+                        <button class="btn-secondary" onclick="window.clearAll()">🗑️ Очистить</button>
+                    </div>
+                </div>
+
+                <div id="messagesContainer"></div>
+                <div id="resultsContainer"></div>
+            </div>
+
+            <div id="stats" class="tab-content">
+                <div id="playerStatsContainer"></div>
+            </div>
+
+            <div id="method" class="tab-content">
+                <div style="max-width: 900px; line-height: 1.8; color: #333;">
+                    <h2 style="color: #1e3c72; margin-bottom: 20px;">📋 Методика деления</h2>
+
+                    <h3 style="color: #1e3c72; margin-top: 25px; margin-bottom: 15px;">🎯 Приоритеты деления</h3>
+                    <p><strong>1️⃣ КЛЮЧЕВОЙ (Главный):</strong> Равное количество игроков в каждой команде</p>
+                    <p style="margin-left: 20px; color: #666;">→ 15 игроков ÷ 3 команды = по 5 игроков в каждой</p>
+
+                    <p><strong>2️⃣ ВТОРИЧНЫЙ (Баланс состава):</strong></p>
+                    <ul style="margin-left: 40px; color: #666;">
+                        <li>Каждой команде по 1 вратарю (профильный GK или со вторичной позицией GK)</li>
+                        <li>Максимум 3 игрока с одинаковым набором позиций (напр. DEF/MID)</li>
+                        <li><strong>✅ Минимум 1 игрок с позицией ST</strong> (основная pos1=ST или вторичная pos2=ST)</li>
+                    </ul>
+
+                    <p><strong>3️⃣ ТРЕТИЧНЫЙ (Баланс рейтинга):</strong></p>
+                    <p style="margin-left: 20px; color: #666;">→ Выбираем команду с наименьшим текущим рейтингом</p>
+
+                    <h3 style="color: #1e3c72; margin-top: 25px; margin-bottom: 15px;">🔄 Постобработка (Оптимизация)</h3>
+                    <p><strong>ЭТАП 1:</strong> Проверка ST в каждой команде</p>
+                    <p style="margin-left: 20px; color: #666;">Если в команде нет ST → меняем его с другой командой</p>
+
+                    <p><strong>ЭТАП 2:</strong> Балансировка рейтинга через обмены</p>
+                    <p style="margin-left: 20px; color: #666;">Ищем пары игроков с одинаковыми позициями и обмениваем их, если это улучшит баланс рейтинга</p>
+
+                    <h3 style="color: #1e3c72; margin-top: 25px; margin-bottom: 15px;">✅ Конечный результат</h3>
+                    <ul style="margin-left: 40px; color: #666;">
+                        <li>Каждая команда: ровно 5 игроков</li>
+                        <li>Каждая команда: 1 вратарь (GK или pos2=GK)</li>
+                        <li>Каждая команда: минимум 1 ST (pos1=ST или pos2=ST)</li>
+                        <li>Максимум 3 с одинаковым набором позиций</li>
+                        <li>Минимальный разброс рейтинга</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const allPlayers = [
+            { name: "Дима Корольков", gk: 9, def: 3, att: 3, end: 4, pos1: "GK", pos2: "DEF", baseR: 5.02, formR: 0.0 },
+            { name: "Олег Сильченко", gk: 4, def: 9, att: 5, end: 8, pos1: "DEF", pos2: "MID", baseR: 6.50, formR: 0.75 },
+            { name: "Паша Орлов", gk: 3, def: 9, att: 6, end: 7, pos1: "DEF", pos2: "MID", baseR: 6.45, formR: 0.5 },
+            { name: "Олег Иохин", gk: 3, def: 5, att: 9, end: 4, pos1: "ST", pos2: "MID", baseR: 5.50, formR: 2.0 },
+            { name: "Паша Тренин", gk: 1, def: 5, att: 8, end: 7, pos1: "MID", pos2: "ST", baseR: 5.15, formR: 2.5 },
+            { name: "Илья Сыван", gk: 5, def: 8, att: 6, end: 7, pos1: "DEF", pos2: "MID", baseR: 6.00, formR: 0.75 },
+            { name: "Андрей Берликов", gk: 3, def: 6, att: 4, end: 5, pos1: "DEF", pos2: "MID", baseR: 4.85, formR: 0.0 },
+            { name: "Паша Пахомов", gk: 2, def: 4, att: 4, end: 4, pos1: "DEF", pos2: "MID", baseR: 3.70, formR: 1.0 },
+            { name: "Саша Скрывля", gk: 6, def: 7, att: 7, end: 8, pos1: "MID", pos2: "GK", baseR: 6.30, formR: 1.25 },
+            { name: "Витинька", gk: 6, def: 7, att: 8, end: 8, pos1: "MID", pos2: "ST", baseR: 6.65, formR: 0.0 },
+            { name: "Миша Фирсков", gk: 3, def: 3, att: 4, end: 5, pos1: "ST", pos2: "MID", baseR: 3.60, formR: 0.5 },
+            { name: "Паша Вирник", gk: 2, def: 4, att: 7, end: 5, pos1: "ST", pos2: "MID", baseR: 4.40, formR: 3.5 },
+            { name: "Женя Клюшин", gk: 7, def: 8, att: 5, end: 7, pos1: "DEF", pos2: "GK", baseR: 6.35, formR: 0.0 },
+            { name: "Дима Князев", gk: 2, def: 7, att: 10, end: 8, pos1: "MID", pos2: "ST", baseR: 6.45, formR: 2.5 },
+            { name: "Игорь Еремеев", gk: 2, def: 6, att: 5, end: 6, pos1: "DEF", pos2: "MID", baseR: 5.15, formR: 0.5 },
+            { name: "Алексей Милованович", gk: 9, def: 8, att: 5, end: 7, pos1: "GK", pos2: "DEF", baseR: 6.85, formR: 0.0 },
+            { name: "Андрей", gk: 3, def: 6, att: 5, end: 5, pos1: "DEF", pos2: "MID", baseR: 4.85, formR: 0.0 },
+            { name: "Сурен", gk: 8, def: 3, att: 3, end: 4, pos1: "GK", pos2: "DEF", baseR: 5.10, formR: 0.0 },
+            { name: "Саша Ли", gk: 2, def: 4, att: 7, end: 4, pos1: "ST", pos2: "DEF", baseR: 4.30, formR: 1.5 },
+            { name: "Кирилл Лизунов", gk: 5, def: 5, att: 8, end: 5, pos1: "ST", pos2: "MID", baseR: 5.30, formR: 0.0 },
+            { name: "Миша Комков", gk: 2, def: 6, att: 5, end: 7, pos1: "DEF", pos2: "MID", baseR: 5.20, formR: 0.0 },
+            { name: "Антон Борисов", gk: 3, def: 8, att: 6, end: 7, pos1: "MID", pos2: "DEF", baseR: 6.00, formR: 0.75 },
+            { name: "Алексей Зайцев", gk: 3, def: 6, att: 4, end: 6, pos1: "DEF", pos2: "MID", baseR: 5.05, formR: 0.75 },
+            { name: "Петр Звенигородский", gk: 4, def: 6, att: 4, end: 6, pos1: "DEF", pos2: "MID", baseR: 5.15, formR: 0.5 },
+            { name: "Миша от Клюшина", gk: 2, def: 8, att: 6, end: 7, pos1: "DEF", pos2: "MID", baseR: 5.85, formR: 0.0 },
+            { name: "Максим Савиола", gk: 2, def: 7, att: 6, end: 4, pos1: "MID", pos2: "DEF", baseR: 5.10, formR: 0.0 },
+            { name: "Дима Войнаревич", gk: 3, def: 5, att: 7, end: 6, pos1: "MID", pos2: "ST", baseR: 5.10, formR: 0.0 },
+            { name: "Максим (от Игоря)", gk: 2, def: 5, att: 7, end: 5, pos1: "MID", pos2: "ST", baseR: 4.85, formR: 0.0 },
+            { name: "Ваня от Клюшина", gk: 3, def: 6, att: 7, end: 6, pos1: "MID", pos2: "ST", baseR: 5.55, formR: 2.75 },
+            { name: "Георгий Вагин", gk: 3, def: 6, att: 5, end: 6, pos1: "DEF", pos2: "MID", baseR: 5.10, formR: 0.0 },
+            { name: "Дима Фродин", gk: 2, def: 3, att: 4, end: 3, pos1: "MID", pos2: "DEF", baseR: 3.35, formR: 0.0 }
+        ];
+
+        // Данные матчей
+        window.matchesData = [
+            { date: "21.01", team1: [
+                {name: "Дима Корольков", goals: 0, assists: 0},
+                {name: "Олег Сильченко", goals: 2, assists: 0},
+                {name: "Паша Орлов", goals: 0, assists: 1},
+                {name: "Паша Тренин", goals: 0, assists: 0},
+                {name: "Паша Пахомов", goals: 0, assists: 0},
+                {name: "Саша Скрывля", goals: 1, assists: 0}
+            ], team2: [
+                {name: "Алексей Милованович", goals: 0, assists: 0},
+                {name: "Андрей Берликов", goals: 0, assists: 1},
+                {name: "Миша Фирсков", goals: 0, assists: 0},
+                {name: "Илья Сыван", goals: 1, assists: 0},
+                {name: "Олег Иохин", goals: 1, assists: 1},
+                {name: "Витинька", goals: 1, assists: 1}
+            ]},
+            { date: "10.03", team1: [
+                {name: "Дима Корольков", goals: 0, assists: 0},
+                {name: "Паша Пахомов", goals: 1, assists: 0},
+                {name: "Олег Сильченко", goals: 2, assists: 0},
+                {name: "Женя Клюшин", goals: 2, assists: 0},
+                {name: "Паша Вирник", goals: 1, assists: 2},
+                {name: "Игорь Еремеев", goals: 1, assists: 0}
+            ], team2: [
+                {name: "Саша Скрывля", goals: 1, assists: 0},
+                {name: "Андрей Берликов", goals: 1, assists: 0},
+                {name: "Паша Орлов", goals: 2, assists: 2},
+                {name: "Илья Сыван", goals: 1, assists: 0},
+                {name: "Паша Тренин", goals: 2, assists: 3},
+                {name: "Миша Фирсков", goals: 2, assists: 1}
+            ]},
+            { date: "18.03", team1: [
+                {name: "Дима Корольков", goals: 0, assists: 0},
+                {name: "Паша Пахомов", goals: 0, assists: 0},
+                {name: "Женя Клюшин", goals: 2, assists: 1},
+                {name: "Паша Вирник", goals: 2, assists: 1},
+                {name: "Дима Князев", goals: 3, assists: 2},
+                {name: "Игорь Еремеев", goals: 0, assists: 1}
+            ], team2: [
+                {name: "Саша Скрывля", goals: 1, assists: 2},
+                {name: "Андрей Берликов", goals: 0, assists: 1},
+                {name: "Паша Орлов", goals: 1, assists: 0},
+                {name: "Паша Тренин", goals: 2, assists: 2},
+                {name: "Олег Иохин", goals: 3, assists: 1},
+                {name: "Илья Сыван", goals: 2, assists: 3}
+            ]},
+            { date: "25.03", team1: [
+                {name: "Дима Корольков", goals: 0, assists: 0},
+                {name: "Олег Сильченко", goals: 0, assists: 2},
+                {name: "Женя Клюшин", goals: 2, assists: 2},
+                {name: "Паша Вирник", goals: 1, assists: 0},
+                {name: "Паша Тренин", goals: 1, assists: 1},
+                {name: "Паша Орлов", goals: 2, assists: 0}
+            ], team2: [
+                {name: "Сурен", goals: 0, assists: 0},
+                {name: "Саша Скрывля", goals: 1, assists: 3},
+                {name: "Игорь Еремеев", goals: 1, assists: 0},
+                {name: "Илья Сыван", goals: 1, assists: 1},
+                {name: "Андрей Берликов", goals: 2, assists: 0},
+                {name: "Андрей", goals: 1, assists: 0}
+            ]},
+            { date: "01.04", team1: [
+                {name: "Дима Князев", goals: 6, assists: 2},
+                {name: "Андрей Берликов", goals: 1, assists: 0},
+                {name: "Женя Клюшин", goals: 1, assists: 1},
+                {name: "Игорь Еремеев", goals: 1, assists: 0},
+                {name: "Паша Тренин", goals: 2, assists: 1}
+            ], team2: [
+                {name: "Дима Корольков", goals: 0, assists: 1},
+                {name: "Саша Скрывля", goals: 2, assists: 1},
+                {name: "Кирилл Лизунов", goals: 1, assists: 2},
+                {name: "Паша Пахомов", goals: 0, assists: 0},
+                {name: "Миша Комков", goals: 1, assists: 2},
+                {name: "Паша Вирник", goals: 3, assists: 0}
+            ], team3: [
+                {name: "Алексей Милованович", goals: 0, assists: 0},
+                {name: "Олег Иохин", goals: 1, assists: 1},
+                {name: "Миша Фирсков", goals: 0, assists: 0},
+                {name: "Паша Орлов", goals: 1, assists: 0},
+                {name: "Саша Ли", goals: 2, assists: 1},
+                {name: "Илья Сыван", goals: 0, assists: 0}
+            ]},
+            { date: "08.04", team1: [
+                {name: "Саша Скрывля", goals: 0, assists: 0},
+                {name: "Паша Орлов", goals: 0, assists: 0},
+                {name: "Миша Фирсков", goals: 0, assists: 0},
+                {name: "Паша Тренин", goals: 3, assists: 3},
+                {name: "Паша Вирник", goals: 1, assists: 2},
+                {name: "Миша Комков", goals: 2, assists: 1},
+                {name: "Антон Борисов", goals: 2, assists: 1}
+            ], team2: [
+                {name: "Алексей Милованович", goals: 0, assists: 0},
+                {name: "Олег Сильченко", goals: 0, assists: 1},
+                {name: "Паша Пахомов", goals: 0, assists: 0},
+                {name: "Илья Сыван", goals: 1, assists: 1},
+                {name: "Дима Князев", goals: 2, assists: 1},
+                {name: "Алексей Зайцев", goals: 0, assists: 1},
+                {name: "Кирилл Лизунов", goals: 7, assists: 2}
+            ]},
+            { date: "15.04", team1: [
+                {name: "Дима Корольков", goals: 0, assists: 0},
+                {name: "Олег Сильченко", goals: 0, assists: 0},
+                {name: "Миша Комков", goals: 1, assists: 0},
+                {name: "Антон Борисов", goals: 0, assists: 0},
+                {name: "Паша Вирник", goals: 0, assists: 0}
+            ], team2: [
+                {name: "Алексей Милованович", goals: 0, assists: 0},
+                {name: "Андрей Берликов", goals: 1, assists: 0},
+                {name: "Алексей Зайцев", goals: 1, assists: 1},
+                {name: "Паша Тренин", goals: 2, assists: 4},
+                {name: "Олег Иохин", goals: 3, assists: 1}
+            ], team3: [
+                {name: "Женя Клюшин", goals: 1, assists: 0},
+                {name: "Паша Орлов", goals: 0, assists: 0},
+                {name: "Миша Фирсков", goals: 0, assists: 1},
+                {name: "Илья Сыван", goals: 0, assists: 0},
+                {name: "Дима Князев", goals: 1, assists: 1}
+            ]},
+            { date: "22.04", team1: [
+                {name: "Алексей Милованович", goals: 0, assists: 0},
+                {name: "Паша Орлов", goals: 1, assists: 0},
+                {name: "Олег Сильченко", goals: 1, assists: 1},
+                {name: "Миша Комков", goals: 0, assists: 0},
+                {name: "Паша Тренин", goals: 1, assists: 1},
+                {name: "Илья Сыван", goals: 0, assists: 0}
+            ], team2: [
+                {name: "Алексей Зайцев", goals: 0, assists: 0},
+                {name: "Женя Клюшин", goals: 0, assists: 1},
+                {name: "Миша Фирсков", goals: 1, assists: 1},
+                {name: "Антон Борисов", goals: 2, assists: 1},
+                {name: "Олег Иохин", goals: 1, assists: 2},
+                {name: "Дима Князев", goals: 3, assists: 1}
+            ]},
+            { date: "06.05", team1: [
+                {name: "Дима Корольков", goals: 0, assists: 0},
+                {name: "Олег Сильченко", goals: 0, assists: 0},
+                {name: "Илья Сыван", goals: 2, assists: 1},
+                {name: "Саша Ли", goals: 1, assists: 5},
+                {name: "Дима Князев", goals: 9, assists: 3}
+            ], team2: [
+                {name: "Саша Скрывля", goals: 1, assists: 2},
+                {name: "Андрей Берликов", goals: 0, assists: 1},
+                {name: "Петр Звенигородский", goals: 0, assists: 0},
+                {name: "Паша Вирник", goals: 1, assists: 2},
+                {name: "Паша Тренин", goals: 3, assists: 1}
+            ]},
+            { date: "13.05", team1: [
+                {name: "Дима Корольков", goals: 0, assists: 0},
+                {name: "Олег Сильченко", goals: 0, assists: 3},
+                {name: "Паша Тренин", goals: 4, assists: 1},
+                {name: "Илья Сыван", goals: 1, assists: 1},
+                {name: "Кирилл Лизунов", goals: 2, assists: 1}
+            ], team2: [
+                {name: "Саша Скрывля", goals: 0, assists: 1},
+                {name: "Женя Клюшин", goals: 0, assists: 2},
+                {name: "Саша Ли", goals: 3, assists: 1},
+                {name: "Максим Савиола", goals: 2, assists: 1},
+                {name: "Паша Вирник", goals: 3, assists: 1}
+            ], team3: [
+                {name: "Алексей Милованович", goals: 1, assists: 1},
+                {name: "Алексей Зайцев", goals: 0, assists: 1},
+                {name: "Миша от Клюшина", goals: 2, assists: 1},
+                {name: "Дима Войнаревич", goals: 1, assists: 0},
+                {name: "Витинька", goals: 1, assists: 2}
+            ]},
+            { date: "20.05", team1: [
+                {name: "Дима Корольков", goals: 0, assists: 0},
+                {name: "Олег Сильченко", goals: 1, assists: 2},
+                {name: "Петр Звенигородский", goals: 0, assists: 0},
+                {name: "Илья Сыван", goals: 4, assists: 0},
+                {name: "Паша Вирник", goals: 1, assists: 3}
+            ], team2: [
+                {name: "Саша Скрывля", goals: 0, assists: 2},
+                {name: "Алексей Зайцев", goals: 1, assists: 2},
+                {name: "Миша Фирсков", goals: 2, assists: 0},
+                {name: "Саша Ли", goals: 3, assists: 2},
+                {name: "Ваня от Клюшина", goals: 1, assists: 0}
+            ], team3: [
+                {name: "Женя Клюшин", goals: 0, assists: 0},
+                {name: "Андрей Берликов", goals: 0, assists: 0},
+                {name: "Максим (от Игоря)", goals: 0, assists: 1},
+                {name: "Игорь Еремеев", goals: 2, assists: 0},
+                {name: "Паша Тренин", goals: 3, assists: 2}
+            ]},
+            { date: "27.05", team1: [
+                {name: "Дима Корольков", goals: 0, assists: 0},
+                {name: "Паша Орлов", goals: 0, assists: 0},
+                {name: "Олег Сильченко", goals: 0, assists: 0},
+                {name: "Паша Тренин", goals: 4, assists: 0},
+                {name: "Паша Вирник", goals: 0, assists: 1}
+            ], team2: [
+                {name: "Алексей Милованович", goals: 0, assists: 1},
+                {name: "Женя Клюшин", goals: 1, assists: 0},
+                {name: "Петр Звенигородский", goals: 2, assists: 0},
+                {name: "Саша Ли", goals: 2, assists: 1},
+                {name: "Олег Иохин", goals: 2, assists: 3}
+            ], team3: [
+                {name: "Саша Скрывля", goals: 0, assists: 0},
+                {name: "Алексей Зайцев", goals: 0, assists: 0},
+                {name: "Миша Фирсков", goals: 1, assists: 0},
+                {name: "Илья Сыван", goals: 1, assists: 0},
+                {name: "Дима Князев", goals: 2, assists: 2}
+            ]},
+            { date: "03.06", team1: [
+                {name: "Дима Корольков", goals: 0, assists: 0},
+                {name: "Женя Клюшин", goals: 0, assists: 0},
+                {name: "Алексей Зайцев", goals: 0, assists: 0},
+                {name: "Игорь Еремеев", goals: 0, assists: 0},
+                {name: "Паша Вирник", goals: 0, assists: 0}
+            ], team2: [
+                {name: "Алексей Милованович", goals: 0, assists: 0},
+                {name: "Паша Орлов", goals: 0, assists: 0},
+                {name: "Миша Фирсков", goals: 0, assists: 0},
+                {name: "Дима Войнаревич", goals: 0, assists: 0},
+                {name: "Илья Сыван", goals: 0, assists: 0}
+            ], team3: [
+                {name: "Саша Скрывля", goals: 0, assists: 0},
+                {name: "Антон Борисов", goals: 0, assists: 0},
+                {name: "Петр Звенигородский", goals: 0, assists: 0},
+                {name: "Андрей Берликов", goals: 0, assists: 0},
+                {name: "Дима Князев", goals: 0, assists: 0}
+            ]},
+            { date: "10.06", team1: [
+                {name: "Олег Сильченко", goals: 2, assists: 0},
+                {name: "Саша Скрывля", goals: 3, assists: 1},
+                {name: "Кирилл Лизунов", goals: 0, assists: 0},
+                {name: "Петр Звенигородский", goals: 1, assists: 0},
+                {name: "Максим Савиола", goals: 1, assists: 3}
+            ], team2: [
+                {name: "Илья Сыван", goals: 0, assists: 1},
+                {name: "Женя Клюшин", goals: 4, assists: 0},
+                {name: "Дима Князев", goals: 1, assists: 2},
+                {name: "Саша Ли", goals: 0, assists: 1},
+                {name: "Алексей Зайцев", goals: 0, assists: 0}
+            ], team3: [
+                {name: "Паша Орлов", goals: 0, assists: 2},
+                {name: "Олег Иохин", goals: 4, assists: 0},
+                {name: "Ваня от Клюшина", goals: 0, assists: 1},
+                {name: "Дима Корольков", goals: 0, assists: 0},
+                {name: "Паша Вирник", goals: 3, assists: 1}
+            ]},
+            { date: "17.06", team1: [
+                {name: "Алексей Милованович", goals: 0, assists: 0},
+                {name: "Паша Орлов", goals: 1, assists: 0},
+                {name: "Андрей Берликов", goals: 0, assists: 0},
+                {name: "Ваня от Клюшина", goals: 2, assists: 1},
+                {name: "Паша Вирник", goals: 2, assists: 0}
+            ], team2: [
+                {name: "Саша Скрывля", goals: 3, assists: 0},
+                {name: "Женя Клюшин", goals: 1, assists: 0},
+                {name: "Петр Звенигородский", goals: 0, assists: 0},
+                {name: "Антон Борисов", goals: 1, assists: 0},
+                {name: "Саша Ли", goals: 0, assists: 1}
+            ], team3: [
+                {name: "Дима Корольков", goals: 0, assists: 1},
+                {name: "Олег Сильченко", goals: 2, assists: 0},
+                {name: "Паша Пахомов", goals: 0, assists: 0},
+                {name: "Олег Иохин", goals: 4, assists: 3},
+                {name: "Дима Князев", goals: 3, assists: 1}
+            ]},
+            { date: "24.06", team1: [
+                {name: "Дима Корольков", goals: 0, assists: 0},
+                {name: "Алексей Зайцев", goals: 3, assists: 1},
+                {name: "Максим Савиола", goals: 1, assists: 0},
+                {name: "Олег Иохин", goals: 3, assists: 2},
+                {name: "Саша Ли", goals: 0, assists: 0}
+            ], team2: [
+                {name: "Ваня от Клюшина", goals: 4, assists: 1},
+                {name: "Паша Пахомов", goals: 3, assists: 1},
+                {name: "Паша Орлов", goals: 2, assists: 1},
+                {name: "Илья Сыван", goals: 0, assists: 1},
+                {name: "Паша Вирник", goals: 4, assists: 8}
+            ], team3: [
+                {name: "Петр Звенигородский", goals: 0, assists: 0},
+                {name: "Георгий Вагин", goals: 0, assists: 1},
+                {name: "Олег Сильченко", goals: 0, assists: 1},
+                {name: "Дима Фродин", goals: 0, assists: 1},
+                {name: "Дима Князев", goals: 6, assists: 0}
+            ]}
+        ];
+
+        window.updatePlayerStats = function() {
+            const container = document.getElementById('playerStatsContainer');
+
+            // Собираем статистику по игрокам за все матчи
+            const playerStats = {};
+
+            window.matchesData.forEach(match => {
+                const allTeams = [match.team1, match.team2];
+                if (match.team3) allTeams.push(match.team3);
+
+                allTeams.forEach(team => {
+                    team.forEach(player => {
+                        if (!playerStats[player.name]) {
+                            playerStats[player.name] = { goals: 0, assists: 0, games: 0 };
+                        }
+                        playerStats[player.name].goals += player.goals;
+                        playerStats[player.name].assists += player.assists;
+                        playerStats[player.name].games += 1;
+                    });
+                });
+            });
+
+            // Преобразуем в массив и сортируем по голам
+            const statsArray = Object.entries(playerStats).map(([name, stats]) => ({
+                name,
+                goals: stats.goals,
+                assists: stats.assists,
+                games: stats.games,
+                goalsPerGame: (stats.goals / stats.games).toFixed(2),
+                points: stats.goals + stats.assists,
+                pointsPerGame: ((stats.goals + stats.assists) / stats.games).toFixed(2)
+            })).sort((a, b) => b.goals - a.goals);
+
+            // Отображаем таблицу
+            let html = `
+                <div style="overflow-x: auto;">
+                    <table style="width: 100%; border-collapse: collapse; margin-top: 15px;">
+                        <thead>
+                            <tr style="background: #f5f5f5; border-bottom: 2px solid #1e3c72;">
+                                <th style="padding: 12px; text-align: left; font-weight: 600; color: #1e3c72;">Игрок</th>
+                                <th style="padding: 12px; text-align: center; font-weight: 600; color: #1e3c72;">⚽ Голы</th>
+                                <th style="padding: 12px; text-align: center; font-weight: 600; color: #1e3c72;">🎯 Передачи</th>
+                                <th style="padding: 12px; text-align: center; font-weight: 600; color: #1e3c72;">💰 Очки</th>
+                                <th style="padding: 12px; text-align: center; font-weight: 600; color: #1e3c72;">🎮 Игры</th>
+                                <th style="padding: 12px; text-align: center; font-weight: 600; color: #1e3c72;">⚡ Гол/игру</th>
+                                <th style="padding: 12px; text-align: center; font-weight: 600; color: #1e3c72;">💎 Очки/игру</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${statsArray.map((player, idx) => `
+                                <tr style="border-bottom: 1px solid #eee; background: ${idx % 2 === 0 ? 'white' : '#fafafa'};">
+                                    <td style="padding: 12px; font-weight: 500;">${player.name}</td>
+                                    <td style="padding: 12px; text-align: center; font-weight: 600; color: #1e3c72;">${player.goals}</td>
+                                    <td style="padding: 12px; text-align: center; font-weight: 600; color: #2196F3;">${player.assists}</td>
+                                    <td style="padding: 12px; text-align: center; font-weight: 600; color: #FF9800;">${player.points}</td>
+                                    <td style="padding: 12px; text-align: center; color: #666;">${player.games}</td>
+                                    <td style="padding: 12px; text-align: center; font-weight: 600; color: #4CAF50;">${player.goalsPerGame}</td>
+                                    <td style="padding: 12px; text-align: center; font-weight: 600; color: #9C27B0;">${player.pointsPerGame}</td>
+                                </tr>
+                            `).join('')}
+                        </tbody>
+                    </table>
+                </div>
+            `;
+
+            container.innerHTML = html;
+        };
+
+        window.switchTab = function(tabName) {
+            document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+            document.querySelectorAll('.tab').forEach(b => b.classList.remove('active'));
+            document.getElementById(tabName).classList.add('active');
+
+            const tabButtons = document.querySelectorAll('.tab');
+            const buttonTexts = ['input', 'stats', 'method'];
+            const buttonIndex = buttonTexts.indexOf(tabName);
+            if (buttonIndex >= 0 && tabButtons[buttonIndex]) {
+                tabButtons[buttonIndex].classList.add('active');
+            }
+
+            if (tabName === 'stats') window.updatePlayerStats();
+        };
+
+        window.findPlayer = function(name) {
+            return allPlayers.find(p => p.name.toLowerCase() === name.toLowerCase().trim());
+        };
+
+        window.divideTeams = function() {
+            const input = document.getElementById('playersList').value.trim();
+            const teamCount = parseInt(document.getElementById('teamCount').value);
+            const msgDiv = document.getElementById('messagesContainer');
+            const resDiv = document.getElementById('resultsContainer');
+
+            msgDiv.innerHTML = '';
+            resDiv.innerHTML = '';
+
+            if (!input) {
+                msgDiv.innerHTML = '<div class="message error-message">❌ Введите список игроков</div>';
+                return;
+            }
+
+            const playerNames = input.split('\n').map(n => n.trim()).filter(n => n);
+            const players = playerNames.map(name => {
+                const p = window.findPlayer(name);
+                if (!p) return null;
+                return { ...p, totalRating: p.baseR * 0.7 + p.formR * 0.3 };
+            }).filter(p => p !== null);
+
+            const notFound = playerNames.filter(name => !window.findPlayer(name));
+            if (notFound.length > 0) {
+                msgDiv.innerHTML = `<div class="message error-message">❌ Не найдены: ${notFound.join(', ')}</div>`;
+            }
+
+            if (players.length === 0) {
+                msgDiv.innerHTML += '<div class="message error-message">❌ Нет найденных игроков</div>';
+                return;
+            }
+
+            if (players.length % teamCount !== 0) {
+                msgDiv.innerHTML += `<div class="message error-message">❌ ${players.length} не делится на ${teamCount}</div>`;
+                return;
+            }
+
+            const result = window.smartDivide(players, teamCount);
+            const optimized = window.optimizeTeamBalance(result);
+            msgDiv.innerHTML = `<div class="message success-message">✓ Распределены ${players.length} игроков на ${teamCount} команд</div>`;
+            window.displayResults(optimized);
+        };
+
+        window.smartDivide = function(players, teamCount) {
+            const playersPerTeam = players.length / teamCount;
+
+            // ЭТАП 1: Группируем вратарей (профильных и вторичных)
+            const gkPrimary = players.filter(p => p.pos1 === 'GK').sort((a, b) => b.totalRating - a.totalRating);
+            const gkSecondary = players.filter(p => p.pos2 === 'GK' && p.pos1 !== 'GK').sort((a, b) => b.totalRating - a.totalRating);
+
+            // ЭТАП 2: Группируем полевых игроков по типам позиций
+            const positionGroups = {};
+            players.forEach(p => {
+                if (p.pos1 !== 'GK') {
+                    const key = p.pos2 ? `${p.pos1}/${p.pos2}` : p.pos1;
+                    if (!positionGroups[key]) positionGroups[key] = [];
+                    positionGroups[key].push(p);
+                }
+            });
+
+            // Сортируем каждую группу по рейтингу (убывание)
+            Object.keys(positionGroups).forEach(key => {
+                positionGroups[key].sort((a, b) => b.totalRating - a.totalRating);
+            });
+
+            // ЭТАП 3: Инициализируем команды
+            const teams = Array(teamCount).fill(null).map(() => ({
+                players: [],
+                totalRating: 0,
+                def: 0, mid: 0, st: 0,
+                gk: 0,
+                positionSets: {},
+                totalEndurance: 0,
+                slotsLeft: playersPerTeam
+            }));
+
+            const usedPlayers = new Set();
+
+            // ЭТАП 4: Распределяем вратарей
+            // Сначала профильные GK (по одному в каждую команду)
+            for (let i = 0; i < Math.min(teamCount, gkPrimary.length); i++) {
+                const gk = gkPrimary[i];
+                teams[i].players.push(gk);
+                teams[i].totalRating += gk.totalRating;
+                teams[i].totalEndurance += gk.end;
+                teams[i].slotsLeft--;
+                teams[i].gk++;
+                usedPlayers.add(gk);
+            }
+
+            // Для команд, где не хватает профильного GK, ищем со вторичной позицией
+            for (let i = gkPrimary.length; i < teamCount; i++) {
+                for (const gk of gkSecondary) {
+                    if (!usedPlayers.has(gk)) {
+                        teams[i].players.push(gk);
+                        teams[i].totalRating += gk.totalRating;
+                        teams[i].totalEndurance += gk.end;
+                        teams[i].slotsLeft--;
+                        teams[i].gk++;
+                        usedPlayers.add(gk);
+                        break;
+                    }
+                }
+            }
+
+            // ЭТАП 5: Распределяем полевых игроков по типам позиций
+            const positionKeys = Object.keys(positionGroups).sort((a, b) => {
+                // Сортируем типы по убыванию количества игроков
+                return positionGroups[b].length - positionGroups[a].length;
+            });
+
+            for (const posKey of positionKeys) {
+                const group = positionGroups[posKey];
+
+                for (const player of group) {
+                    if (usedPlayers.has(player)) continue;
+
+                    // Ищем лучшую команду для этого игрока
+                    let bestTeam = -1;
+                    let bestScore = -Infinity;
+
+                    for (let i = 0; i < teamCount; i++) {
+                        // КРИТЕРИЙ 1 (ГЛАВНЫЙ): Есть ли свободное место?
+                        if (teams[i].slotsLeft <= 0) continue;
+
+                        // КРИТЕРИЙ 2: Не превышен ли лимит в 3 для этого типа?
+                        const currentCount = teams[i].positionSets[posKey] || 0;
+                        if (currentCount >= 3) continue;
+
+                        // КРИТЕРИЙ 3: Выбираем команду с минимальным рейтингом
+                        const score = -(teams[i].totalRating) * 1000 - currentCount * 100 + teams[i].slotsLeft;
+
+                        if (bestTeam === -1 || score > bestScore) {
+                            bestTeam = i;
+                            bestScore = score;
+                        }
+                    }
+
+                    if (bestTeam !== -1) {
+                        const team = teams[bestTeam];
+                        team.players.push(player);
+                        team.totalRating += player.totalRating;
+                        team.totalEndurance += player.end;
+                        team.slotsLeft--;
+
+                        if (player.pos1 === 'DEF') team.def++;
+                        else if (player.pos1 === 'MID') team.mid++;
+                        else if (player.pos1 === 'ST') team.st++;
+
+                        team.positionSets[posKey] = (team.positionSets[posKey] || 0) + 1;
+                        usedPlayers.add(player);
+                    }
+                }
+            }
+
+            return teams;
+        };
+
+        // Функция для оптимизации баланса через обмены
+        window.optimizeTeamBalance = function(teams) {
+            let improved = true;
+            let iterations = 0;
+            const maxIterations = 50;
+
+            while (improved && iterations < maxIterations) {
+                improved = false;
+                iterations++;
+
+                // ЭТАП 1: Проверяем, что в каждой команде есть хотя бы 1 ST
+                for (let i = 0; i < teams.length; i++) {
+                    const hasSTinTeam = teams[i].players.some(p => p.pos1 === 'ST' || p.pos2 === 'ST');
+
+                    if (!hasSTinTeam) {
+                        // Ищем ST в других командах и меняем его с кем-то
+                        for (let j = 0; j < teams.length; j++) {
+                            if (i === j) continue;
+
+                            // Ищем ST игрока в команде j
+                            const stPlayerIdx = teams[j].players.findIndex(p => p.pos1 === 'ST' || p.pos2 === 'ST');
+
+                            if (stPlayerIdx !== -1) {
+                                const stPlayer = teams[j].players[stPlayerIdx];
+
+                                // Ищем игрока в команде i для обмена (не вратаря и не единственного ST в команде j)
+                                const stCountInJ = teams[j].players.filter(p => p.pos1 === 'ST' || p.pos2 === 'ST').length;
+
+                                for (let p = 0; p < teams[i].players.length; p++) {
+                                    const player = teams[i].players[p];
+
+                                    // Пропускаем вратарей
+                                    if (player.pos1 === 'GK') continue;
+
+                                    // Обмениваем игроков
+                                    teams[i].players[p] = stPlayer;
+                                    teams[j].players[stPlayerIdx] = player;
+
+                                    // Обновляем рейтинги
+                                    teams[i].totalRating = teams[i].totalRating - player.totalRating + stPlayer.totalRating;
+                                    teams[j].totalRating = teams[j].totalRating - stPlayer.totalRating + player.totalRating;
+
+                                    improved = true;
+                                    break;
+                                }
+
+                                if (improved) break;
+                            }
+                        }
+
+                        if (improved) break;
+                    }
+                }
+
+                if (improved) continue;
+
+                // ЭТАП 2: Оптимизируем баланс рейтинга (обмены между командами с одинаковыми позициями)
+                // Вычисляем средний рейтинг
+                const avgRating = teams.reduce((sum, t) => sum + t.totalRating, 0) / teams.length;
+
+                // Для каждой пары команд
+                for (let i = 0; i < teams.length; i++) {
+                    for (let j = i + 1; j < teams.length; j++) {
+                        const team1 = teams[i];
+                        const team2 = teams[j];
+
+                        // Если рейтинги очень близки - пропускаем
+                        if (Math.abs(team1.totalRating - team2.totalRating) < 0.1) continue;
+
+                        // Определяем, какая команда сильнее
+                        const strongTeam = team1.totalRating > team2.totalRating ? team1 : team2;
+                        const weakTeam = team1.totalRating > team2.totalRating ? team2 : team1;
+
+                        // Ищем игроков с одинаковыми позициями для обмена
+                        let bestSwap = null;
+                        let bestImprovement = 0;
+
+                        for (let p1 = 0; p1 < strongTeam.players.length; p1++) {
+                            const player1 = strongTeam.players[p1];
+                            const pos1 = player1.pos2 ? `${player1.pos1}/${player1.pos2}` : player1.pos1;
+
+                            // Пропускаем вратарей
+                            if (player1.pos1 === 'GK') continue;
+
+                            // Пропускаем, если это единственный ST в команде
+                            if ((player1.pos1 === 'ST' || player1.pos2 === 'ST') &&
+                                strongTeam.players.filter(p => p.pos1 === 'ST' || p.pos2 === 'ST').length === 1) {
+                                continue;
+                            }
+
+                            for (let p2 = 0; p2 < weakTeam.players.length; p2++) {
+                                const player2 = weakTeam.players[p2];
+                                const pos2 = player2.pos2 ? `${player2.pos1}/${player2.pos2}` : player2.pos1;
+
+                                // Пропускаем вратарей
+                                if (player2.pos1 === 'GK') continue;
+
+                                // Пропускаем, если это единственный ST в команде
+                                if ((player2.pos1 === 'ST' || player2.pos2 === 'ST') &&
+                                    weakTeam.players.filter(p => p.pos1 === 'ST' || p.pos2 === 'ST').length === 1) {
+                                    continue;
+                                }
+
+                                // Проверяем, одинаковые ли позиции
+                                if (pos1 !== pos2) continue;
+
+                                // Вычисляем улучшение
+                                const currentDiff = Math.abs(strongTeam.totalRating - weakTeam.totalRating);
+                                const newStrongRating = strongTeam.totalRating - player1.totalRating + player2.totalRating;
+                                const newWeakRating = weakTeam.totalRating - player2.totalRating + player1.totalRating;
+                                const newDiff = Math.abs(newStrongRating - newWeakRating);
+
+                                const improvement = currentDiff - newDiff;
+
+                                // Если обмен улучшает баланс
+                                if (improvement > bestImprovement) {
+                                    bestImprovement = improvement;
+                                    bestSwap = { p1, p2, player1, player2 };
+                                }
+                            }
+                        }
+
+                        // Если нашли хороший обмен, делаем его
+                        if (bestSwap && bestImprovement > 0.01) {
+                            const { p1, p2, player1, player2 } = bestSwap;
+
+                            // Обмениваем игроков
+                            strongTeam.players[p1] = player2;
+                            weakTeam.players[p2] = player1;
+
+                            // Обновляем рейтинги
+                            strongTeam.totalRating = strongTeam.totalRating - player1.totalRating + player2.totalRating;
+                            weakTeam.totalRating = weakTeam.totalRating - player2.totalRating + player1.totalRating;
+
+                            improved = true;
+                            break;
+                        }
+                    }
+                    if (improved) break;
+                }
+            }
+
+            return teams;
+        };
+
+        window.displayResults = function(teams) {
+            const resDiv = document.getElementById('resultsContainer');
+
+            const allRatings = teams.map(t => t.totalRating);
+            const avgRating = allRatings.reduce((a, b) => a + b, 0) / teams.length;
+            const maxDiff = Math.max(...allRatings.map(r => Math.abs(r - avgRating)));
+
+            let html = `
+                <div class="balance-summary">
+                    <h3 style="color: #1e3c72; margin-bottom: 10px;">📊 Баланс</h3>
+                    <div class="balance-grid">
+                        <div class="balance-box"><div class="balance-label">Разброс</div><div class="balance-value">±${maxDiff.toFixed(2)}</div></div>
+                        <div class="balance-box"><div class="balance-label">Средний</div><div class="balance-value">${avgRating.toFixed(2)}</div></div>
+                    </div>
+                </div>
+                <div class="teams-grid">
+            `;
+
+            const colors = ['team1', 'team2', 'team3', 'team4', 'team5'];
+
+            teams.forEach((team, idx) => {
+                const sorted = team.players.sort((a, b) => b.totalRating - a.totalRating);
+                const posCountSecondary = { DEF: 0, MID: 0, ST: 0 };
+                team.players.forEach(p => {
+                    if (p.pos1 !== 'GK') {
+                        posCountSecondary[p.pos1]++;
+                        if (p.pos2 && p.pos2 !== 'GK') posCountSecondary[p.pos2]++;
+                    }
+                });
+
+                // Вычисляем средние навыки команды
+                const gkPlayer = team.players.find(p => p.pos1 === 'GK');
+                const fieldPlayers = team.players.filter(p => p.pos1 !== 'GK');
+
+                let avgSkills = {};
+
+                if (gkPlayer) {
+                    // Если есть профильный вратарь
+                    // GK навык: только от вратаря
+                    avgSkills.gk = gkPlayer.gk.toFixed(2);
+
+                    // DEF/ATT/END: только от полевых игроков (без вратаря)
+                    avgSkills.def = (fieldPlayers.reduce((sum, p) => sum + p.def, 0) / fieldPlayers.length).toFixed(2);
+                    avgSkills.att = (fieldPlayers.reduce((sum, p) => sum + p.att, 0) / fieldPlayers.length).toFixed(2);
+                    avgSkills.end = (fieldPlayers.reduce((sum, p) => sum + p.end, 0) / fieldPlayers.length).toFixed(2);
+                } else {
+                    // Если нет профильного вратаря (все полевые игроки)
+                    avgSkills.gk = (team.players.reduce((sum, p) => sum + p.gk, 0) / team.players.length).toFixed(2);
+                    avgSkills.def = (team.players.reduce((sum, p) => sum + p.def, 0) / team.players.length).toFixed(2);
+                    avgSkills.att = (team.players.reduce((sum, p) => sum + p.att, 0) / team.players.length).toFixed(2);
+                    avgSkills.end = (team.totalEndurance / team.players.length).toFixed(2);
+                }
+
+                html += `
+                    <div class="team-card ${colors[idx]}">
+                        <div class="team-header">Команда ${idx + 1}</div>
+                        <ul class="player-list">
+                            ${sorted.map((p, i) => `
+                                <li class="player-item">
+                                    <div>
+                                        <div class="player-name">${i + 1}. ${p.name}</div>
+                                        <div class="player-stats">
+                                            <span class="pos-badge">${p.pos1}</span>
+                                            ${p.pos2 ? `<span class="pos-badge secondary-badge">${p.pos2}</span>` : ''}
+                                        </div>
+                                    </div>
+                                    <div class="rating-badge">${p.totalRating.toFixed(2)}</div>
+                                </li>
+                            `).join('')}
+                        </ul>
+                        <div class="formation">
+                            <strong>Основные:</strong> ${team.def}DEF • ${team.mid}MID • ${team.st}ST<br>
+                            <strong>Вторичные:</strong> ${posCountSecondary.DEF}DEF • ${posCountSecondary.MID}MID • ${posCountSecondary.ST}ST
+                        </div>
+                        <div class="team-stats">
+                            <div class="stat-row"><span class="stat-label">Рейтинг:</span><span class="stat-value">${team.totalRating.toFixed(2)}</span></div>
+                            <div class="stat-row"><span class="stat-label">Ср.:</span><span class="stat-value">${(team.totalRating / team.players.length).toFixed(2)}</span></div>
+                        </div>
+                        <div style="margin-top: 15px; padding-top: 15px; border-top: 1px solid #ddd; font-size: 11px;">
+                            <div style="font-weight: 600; color: #1e3c72; margin-bottom: 8px;">⚙️ Средние навыки:</div>
+                            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
+                                <div style="display: flex; justify-content: space-between;">
+                                    <span style="color: #666;">🧤 Вратарь:</span>
+                                    <span style="font-weight: 600; color: #1e3c72;">${avgSkills.gk}</span>
+                                </div>
+                                <div style="display: flex; justify-content: space-between;">
+                                    <span style="color: #666;">🛡️ Защита:</span>
+                                    <span style="font-weight: 600; color: #1e3c72;">${avgSkills.def}</span>
+                                </div>
+                                <div style="display: flex; justify-content: space-between;">
+                                    <span style="color: #666;">⚽ Атака:</span>
+                                    <span style="font-weight: 600; color: #1e3c72;">${avgSkills.att}</span>
+                                </div>
+                                <div style="display: flex; justify-content: space-between;">
+                                    <span style="color: #666;">💪 Выносл.:</span>
+                                    <span style="font-weight: 600; color: #1e3c72;">${avgSkills.end}</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            });
+
+            html += '</div>';
+            resDiv.innerHTML = html;
+        };
+
+        window.clearAll = function() {
+            document.getElementById('playersList').value = '';
+            document.getElementById('messagesContainer').innerHTML = '';
+            document.getElementById('resultsContainer').innerHTML = '';
+        };
+    </script>
+</body>
+</html>
