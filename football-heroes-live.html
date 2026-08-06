@@ -658,6 +658,19 @@
                 window.gameDays = JSON.parse(JSON.stringify(SEED_GAMEDAYS));
                 migrated = true;
             }
+
+            // Игроки, сохранённые ещё до появления навыков GK/DEF/ATT/END
+            // (старая схема хранила только общий рейтинг), донабираем эти поля
+            // значением рейтинга — как и везде в приложении, когда навык не задан.
+            window.roster.forEach(p => {
+                ['gk', 'def', 'att', 'end'].forEach(field => {
+                    if (typeof p[field] !== 'number' || isNaN(p[field])) {
+                        p[field] = typeof p.rating === 'number' ? p.rating : 5;
+                        migrated = true;
+                    }
+                });
+            });
+
             if (migrated) window.saveData();
         };
 
