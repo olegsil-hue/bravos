@@ -7,7 +7,8 @@
    "gk": 9,
    "def": 3,
    "att": 1,
-   "end": 5
+   "end": 5,
+   "telegramUsername": null
   },
   {
    "name": "Олег Сильченко",
@@ -16,7 +17,8 @@
    "gk": 4,
    "def": 8,
    "att": 5,
-   "end": 9
+   "end": 9,
+   "telegramUsername": null
   },
   {
    "name": "Паша Орлов",
@@ -25,7 +27,8 @@
    "gk": 3,
    "def": 10,
    "att": 5,
-   "end": 8
+   "end": 8,
+   "telegramUsername": null
   },
   {
    "name": "Олег Иохин",
@@ -34,7 +37,8 @@
    "gk": 3,
    "def": 5,
    "att": 10,
-   "end": 4
+   "end": 4,
+   "telegramUsername": null
   },
   {
    "name": "Паша Тренин",
@@ -43,7 +47,8 @@
    "gk": 1,
    "def": 5,
    "att": 10,
-   "end": 8
+   "end": 8,
+   "telegramUsername": null
   },
   {
    "name": "Илья Сыван",
@@ -52,7 +57,8 @@
    "gk": 5,
    "def": 8,
    "att": 6,
-   "end": 8
+   "end": 8,
+   "telegramUsername": null
   },
   {
    "name": "Андрей Берликов",
@@ -61,7 +67,8 @@
    "gk": 3,
    "def": 7,
    "att": 3,
-   "end": 6
+   "end": 6,
+   "telegramUsername": null
   },
   {
    "name": "Паша Пахомов",
@@ -70,7 +77,8 @@
    "gk": 2,
    "def": 4,
    "att": 3,
-   "end": 4
+   "end": 4,
+   "telegramUsername": null
   },
   {
    "name": "Саша Скрывля",
@@ -79,7 +87,8 @@
    "gk": 6,
    "def": 7,
    "att": 7,
-   "end": 9
+   "end": 9,
+   "telegramUsername": null
   },
   {
    "name": "Витинька",
@@ -88,7 +97,8 @@
    "gk": 6,
    "def": 7,
    "att": 9,
-   "end": 7
+   "end": 7,
+   "telegramUsername": null
   },
   {
    "name": "Миша Фирсков",
@@ -97,7 +107,8 @@
    "gk": 3,
    "def": 5,
    "att": 4,
-   "end": 6
+   "end": 6,
+   "telegramUsername": null
   },
   {
    "name": "Паша Вирник",
@@ -106,7 +117,8 @@
    "gk": 2,
    "def": 3,
    "att": 8,
-   "end": 6
+   "end": 6,
+   "telegramUsername": null
   },
   {
    "name": "Женя Клюшин",
@@ -115,7 +127,8 @@
    "gk": 7,
    "def": 9,
    "att": 5,
-   "end": 8
+   "end": 8,
+   "telegramUsername": null
   },
   {
    "name": "Дима Князев",
@@ -124,7 +137,8 @@
    "gk": 2,
    "def": 7,
    "att": 10,
-   "end": 8
+   "end": 8,
+   "telegramUsername": null
   },
   {
    "name": "Игорь Еремеев",
@@ -133,7 +147,8 @@
    "gk": 2,
    "def": 7,
    "att": 4,
-   "end": 6
+   "end": 6,
+   "telegramUsername": null
   },
   {
    "name": "Алексей Милованович",
@@ -142,7 +157,8 @@
    "gk": 9,
    "def": 9,
    "att": 4,
-   "end": 7
+   "end": 7,
+   "telegramUsername": null
   },
   {
    "name": "Андрей",
@@ -151,7 +167,8 @@
    "gk": 3,
    "def": 8,
    "att": 4,
-   "end": 4
+   "end": 4,
+   "telegramUsername": null
   },
   {
    "name": "Сурен",
@@ -160,7 +177,8 @@
    "gk": 9,
    "def": 5,
    "att": 1,
-   "end": 3
+   "end": 3,
+   "telegramUsername": null
   },
   {
    "name": "Саша Ли",
@@ -169,7 +187,8 @@
    "gk": 2,
    "def": 2,
    "att": 8,
-   "end": 4
+   "end": 4,
+   "telegramUsername": null
   },
   {
    "name": "Кирилл Лизунов",
@@ -178,7 +197,8 @@
    "gk": 5,
    "def": 3,
    "att": 10,
-   "end": 5
+   "end": 5,
+   "telegramUsername": null
   },
   {
    "name": "Миша Комков",
@@ -187,7 +207,8 @@
    "gk": 2,
    "def": 6,
    "att": 5,
-   "end": 7
+   "end": 7,
+   "telegramUsername": null
   },
   {
    "name": "Антон Борисов",
@@ -196,7 +217,8 @@
    "gk": 3,
    "def": 10,
    "att": 6,
-   "end": 7
+   "end": 7,
+   "telegramUsername": null
   },
   {
    "name": "Алексей Зайцев",
@@ -205,7 +227,8 @@
    "gk": 3,
    "def": 6,
    "att": 4,
-   "end": 7
+   "end": 7,
+   "telegramUsername": null
   },
   {
    "name": "Петр Звенигородский",
@@ -214,7 +237,8 @@
    "gk": 4,
    "def": 5,
    "att": 3,
-   "end": 6
+   "end": 6,
+   "telegramUsername": null
   },
   {
    "name": "Миша от Клюшина",
@@ -223,7 +247,8 @@
    "gk": 2,
    "def": 7,
    "att": 7,
-   "end": 6
+   "end": 6,
+   "telegramUsername": null
   },
   {
    "name": "Максим Савиола",
@@ -232,7 +257,8 @@
    "gk": 2,
    "def": 5,
    "att": 7,
-   "end": 4
+   "end": 4,
+   "telegramUsername": null
   },
   {
    "name": "Дима Войнаревич",
@@ -241,7 +267,8 @@
    "gk": 3,
    "def": 6,
    "att": 6,
-   "end": 5
+   "end": 5,
+   "telegramUsername": null
   },
   {
    "name": "Максим (от Игоря)",
@@ -250,7 +277,8 @@
    "gk": 2,
    "def": 3,
    "att": 6,
-   "end": 4
+   "end": 4,
+   "telegramUsername": null
   },
   {
    "name": "Ваня от Клюшина",
@@ -259,7 +287,8 @@
    "gk": 3,
    "def": 5,
    "att": 8,
-   "end": 6
+   "end": 6,
+   "telegramUsername": null
   },
   {
    "name": "Георгий Вагин",
@@ -268,7 +297,8 @@
    "gk": 3,
    "def": 6,
    "att": 4,
-   "end": 5
+   "end": 5,
+   "telegramUsername": null
   },
   {
    "name": "Дима Фродин",
@@ -277,7 +307,8 @@
    "gk": 2,
    "def": 1,
    "att": 3,
-   "end": 2
+   "end": 2,
+   "telegramUsername": null
   },
   {
    "name": "Дима от Андрея",
@@ -286,7 +317,8 @@
    "gk": 3,
    "def": 5,
    "att": 1,
-   "end": 2
+   "end": 2,
+   "telegramUsername": null
   },
   {
    "name": "Влад от Игоря",
@@ -295,7 +327,8 @@
    "gk": 4,
    "def": 6,
    "att": 4,
-   "end": 3
+   "end": 3,
+   "telegramUsername": null
   },
   {
    "name": "Иван от Ивана",
@@ -304,7 +337,8 @@
    "gk": 4,
    "def": 6,
    "att": 5,
-   "end": 3
+   "end": 3,
+   "telegramUsername": null
   }
  ],
  "gameDays": [

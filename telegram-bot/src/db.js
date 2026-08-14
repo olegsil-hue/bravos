@@ -19,7 +19,8 @@ CREATE TABLE IF NOT EXISTS players (
   gk INTEGER NOT NULL,
   def INTEGER NOT NULL,
   att INTEGER NOT NULL,
-  end_ INTEGER NOT NULL
+  end_ INTEGER NOT NULL,
+  telegram_username TEXT
 );
 
 CREATE TABLE IF NOT EXISTS telegram_links (
@@ -88,13 +89,20 @@ CREATE TABLE IF NOT EXISTS live_matches (
 );
 `);
 
+// Миграция для баз, созданных до появления telegram_username (CREATE TABLE
+// IF NOT EXISTS не добавляет новые колонки в уже существующую таблицу).
+const playerColumns = db.prepare("PRAGMA table_info(players)").all().map(c => c.name);
+if (!playerColumns.includes('telegram_username')) {
+  db.exec('ALTER TABLE players ADD COLUMN telegram_username TEXT');
+}
+
 function seedIfEmpty() {
   const count = db.prepare('SELECT COUNT(*) AS c FROM players').get().c;
   if (count > 0) return;
 
   const insertPlayer = db.prepare(`
-    INSERT INTO players (name, pos1, pos2, gk, def, att, end_)
-    VALUES (@name, @pos1, @pos2, @gk, @def, @att, @end)
+    INSERT INTO players (name, pos1, pos2, gk, def, att, end_, telegram_username)
+    VALUES (@name, @pos1, @pos2, @gk, @def, @att, @end, @telegramUsername)
   `);
   const insertDay = db.prepare(`
     INSERT INTO game_days (date, legacy, teams_json, matches_json, legacy_stats_json, manual_standings_json, personal_stats_json, status)
@@ -102,7 +110,7 @@ function seedIfEmpty() {
   `);
 
   const tx = db.transaction(() => {
-    seed.roster.forEach(p => insertPlayer.run({ ...p, pos2: p.pos2 || null }));
+    seed.roster.forEach(p => insertPlayer.run({ ...p, pos2: p.pos2 || null, telegramUsername: p.telegramUsername || null }));
     seed.gameDays.forEach(d => insertDay.run({
       date: d.date,
       legacy: d.legacy ? 1 : 0,
@@ -122,11 +130,31 @@ seedIfEmpty();
 // --- Игроки ---
 
 function getRoster() {
-  return db.prepare('SELECT name, pos1, pos2, gk, def, att, end_ AS end FROM players').all();
+  return db.prepare('SELECT name, pos1, pos2, gk, def, att, end_ AS end, telegram_username AS telegramUsername FROM players').all();
 }
 
 function findPlayerByName(name) {
-  return db.prepare('SELECT name, pos1, pos2, gk, def, att, end_ AS end FROM players WHERE name = ?').get(name);
+  return db.prepare('SELECT name, pos1, pos2, gk, def, att, end_ AS end, telegram_username AS telegramUsername FROM players WHERE name = ?').get(name);
+}
+
+// Убирает ведущий «@» и приводит к нижнему регистру — так же, как в
+// football-heroes-live.html (window.normalizeTelegramUsername), чтобы
+// сравнение было регистронезависимым и не зависело от того, ввёл ли
+// админ «@» при заполнении.
+function normalizeTelegramUsername(raw) {
+  return (raw || '').trim().replace(/^@/, '').toLowerCase();
+}
+
+function findPlayerByTelegramUsername(username) {
+  const normalized = normalizeTelegramUsername(username);
+  if (!normalized) return null;
+  return db.prepare('SELECT name, pos1, pos2, gk, def, att, end_ AS end, telegram_username AS telegramUsername FROM players WHERE telegram_username = ?').get(normalized);
+}
+
+function setPlayerTelegramUsername(name, username) {
+  const normalized = normalizeTelegramUsername(username);
+  const info = db.prepare('UPDATE players SET telegram_username = ? WHERE name = ?').run(normalized || null, name);
+  return info.changes > 0;
 }
 
 // --- Игровые дни (для core/stats.js — тот же объектный вид, что и в вебе) ---
@@ -309,6 +337,9 @@ module.exports = {
   db,
   getRoster,
   findPlayerByName,
+  findPlayerByTelegramUsername,
+  setPlayerTelegramUsername,
+  normalizeTelegramUsername,
   getAllGameDaysForStats,
   insertGameDay,
   getGameDayById,

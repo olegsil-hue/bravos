@@ -55,9 +55,11 @@ function nextWednesday(from = new Date()) {
 
 bot.start(ctx => ctx.reply(
   'Привет! Это бот футбольных сборов.\n\n' +
-  'Сначала привяжите себя к игроку командой:\n' +
-  '/register Имя Фамилия (как в списке игроков)\n\n' +
-  'После этого сможете голосовать в еженедельном опросе.'
+  'Если ваш Telegram username указан в списке игроков (веб-приложение,' +
+  ' вкладка «Игроки») — вас узнают автоматически при первом голосовании' +
+  ' в опросе, ничего делать не нужно.\n\n' +
+  'Если username не указан или голос не засчитался — привяжите себя' +
+  ' командой:\n/register Имя Фамилия (как в списке игроков)'
 ));
 
 bot.command('register', async ctx => {
@@ -74,8 +76,45 @@ bot.command('register', async ctx => {
 });
 
 bot.command('players', ctx => {
-  const names = db.getRoster().map(p => p.name).sort((a, b) => a.localeCompare(b, 'ru'));
-  return ctx.reply('Список игроков:\n' + names.join('\n'));
+  const roster = db.getRoster().sort((a, b) => a.name.localeCompare(b.name, 'ru'));
+  const lines = roster.map(p => p.telegramUsername ? `${p.name} — @${p.telegramUsername}` : p.name);
+  return ctx.reply('Список игроков:\n' + lines.join('\n'));
+});
+
+// Массовая привязка Telegram username → игрок, без /register для каждого.
+// Источник данных — поле «Telegram username» в веб-приложении (вкладка
+// «Игроки»): там же есть «Массовый ввод/экспорт», строки которого («Имя;
+// Поз1; Поз2; GK; DEF; ATT; END; username») можно вставить сюда как есть —
+// команда сама берёт первое поле как имя и последнее как username,
+// остальные игнорирует. Можно и просто «Имя; username» построчно.
+bot.command('set_usernames', async ctx => {
+  if (!isAdmin(ctx)) return ctx.reply('Эта команда только для администратора.');
+  const body = ctx.message.text.replace(/^\/set_usernames(@\w+)?/, '').trim();
+  if (!body) {
+    return ctx.reply(
+      'Использование: /set_usernames, а дальше — по одной строке на игрока:\n' +
+      'Имя Фамилия; username\n\n' +
+      'Можно вставить прямо строки из «Массовый ввод/экспорт» веб-приложения ' +
+      '(Имя; Поз1; Поз2; GK; DEF; ATT; END; username) — лишние поля посередине проигнорируются.'
+    );
+  }
+
+  const lines = body.split('\n').map(l => l.trim()).filter(l => l);
+  let updated = 0;
+  const notFound = [];
+  for (const line of lines) {
+    const parts = line.split(';').map(p => p.trim());
+    if (parts.length < 2) continue;
+    const name = parts[0];
+    const username = parts[parts.length - 1];
+    if (!name) continue;
+    const ok = db.setPlayerTelegramUsername(name, username);
+    if (ok) updated++; else notFound.push(name);
+  }
+
+  let reply = `✅ Обновлено username: ${updated}.`;
+  if (notFound.length) reply += `\n⚠️ Не найдены в списке игроков: ${notFound.join(', ')}`;
+  return ctx.reply(reply);
 });
 
 // Ручной запуск опроса — «после моего апрува» = сама команда и есть апрув.
@@ -171,13 +210,25 @@ bot.on('poll_answer', async ctx => {
   const optionText = answer.option_ids[0] === 0 ? OPT_IN : OPT_OUT;
   db.recordPollResponse(poll.id, answer.user.id, optionText);
 
-  const playerName = db.getPlayerNameByTelegramId(answer.user.id);
+  // Автопривязка по Telegram username — если ещё не привязан по id, но его
+  // username совпадает с полем «Telegram username» игрока (заполняется в
+  // веб-приложении или через /set_usernames), связываем автоматически и
+  // /register больше не требуется.
+  let playerName = db.getPlayerNameByTelegramId(answer.user.id);
+  if (!playerName && answer.user.username) {
+    const byUsername = db.findPlayerByTelegramUsername(answer.user.username);
+    if (byUsername) {
+      db.linkTelegramUser(answer.user.id, answer.user.username, byUsername.name);
+      playerName = byUsername.name;
+    }
+  }
+
   if (!playerName) {
     // Не привязан к игроку — не сможем учесть его в делении.
     try {
       await bot.telegram.sendMessage(
         answer.user.id,
-        'Голос учтён, но вы ещё не привязаны к игроку в списке — наберите /register Имя Фамилия, иначе я не смогу включить вас в деление на команды.'
+        'Голос учтён, но вы ещё не привязаны к игроку в списке (ваш Telegram username не совпадает ни с одним в списке игроков) — наберите /register Имя Фамилия, иначе я не смогу включить вас в деление на команды.'
       );
     } catch (e) { /* пользователь мог не начинать диалог с ботом — не критично */ }
   }
@@ -400,4 +451,4 @@ process.once('SIGTERM', () => bot.stop('SIGTERM'));
 // Диагностическая метка деплоя — если в логах есть эта строка, значит
 // Railway реально забрал самый свежий коммит из ветки, а не закешировал
 // старый билд.
-console.log('BUILD MARKER: e7a6c6b+2-launch-fix (' + new Date().toISOString() + ')');
+console.log('BUILD MARKER: telegram-username-linking (' + new Date().toISOString() + ')');
