@@ -366,11 +366,13 @@ cron.schedule('0 18 * * 3', async () => {
   if (GROUP_CHAT_ID) await openGameRecording(GROUP_CHAT_ID);
 }, { timezone: TIMEZONE });
 
-// Пошагово, а не через bot.launch() целиком — чтобы точно видеть, на каком
-// именно шаге зависает (getMe / deleteWebhook / старт поллинга), если
-// зависнет. Каждый шаг логируется отдельно.
+// Пошагово, а не через один await bot.launch() — чтобы точно видеть, на
+// каком именно шаге что-то идёт не так (getMe / deleteWebhook / старт
+// поллинга). ВАЖНО: промис bot.launch() у Telegraf НЕ резолвится, пока не
+// вызван bot.stop() — это штатное поведение long-polling цикла, а не
+// зависание. Поэтому его нельзя ждать через await — иначе строка про
+// успешный запуск никогда не напечатается, даже если бот уже отвечает.
 (async () => {
-  const heartbeat = setInterval(() => console.log('...жду ответа от Telegram...'), 5000);
   try {
     console.log('Шаг 1/3: getMe()...');
     const me = await bot.telegram.getMe();
@@ -380,15 +382,16 @@ cron.schedule('0 18 * * 3', async () => {
     await bot.telegram.deleteWebhook({ drop_pending_updates: false });
     console.log('Шаг 2/3 OK.');
 
-    console.log('Шаг 3/3: bot.launch() — старт поллинга...');
-    await bot.launch();
-    console.log('Шаг 3/3 OK. Бот запущен.');
+    console.log('Шаг 3/3: bot.launch() — старт поллинга (промис не резолвится, пока бот работает — это нормально, не ждём его)...');
+    bot.launch().catch(err => {
+      console.error('❌ bot.launch() завершился с ошибкой во время работы:', err);
+      process.exit(1);
+    });
+    console.log('Шаг 3/3 OK. Бот запущен и слушает Telegram (long polling).');
   } catch (err) {
     console.error('❌ Запуск бота провалился:', err);
-    clearInterval(heartbeat);
     process.exit(1);
   }
-  clearInterval(heartbeat);
 })();
 
 process.once('SIGINT', () => bot.stop('SIGINT'));
@@ -397,4 +400,4 @@ process.once('SIGTERM', () => bot.stop('SIGTERM'));
 // Диагностическая метка деплоя — если в логах есть эта строка, значит
 // Railway реально забрал самый свежий коммит из ветки, а не закешировал
 // старый билд.
-console.log('BUILD MARKER: 5c024bb+1 (' + new Date().toISOString() + ')');
+console.log('BUILD MARKER: e7a6c6b+2-launch-fix (' + new Date().toISOString() + ')');
