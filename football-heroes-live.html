@@ -516,7 +516,7 @@
                         <div class="input-row"><label>⚽ Атака</label><input type="number" id="rosterAtt" min="0" max="10" step="1" value="5" oninput="window.updateRatingPreview()"></div>
                         <div class="input-row"><label>💪 Выносл.</label><input type="number" id="rosterEnd" min="0" max="10" step="1" value="5" oninput="window.updateRatingPreview()"></div>
                     </div>
-                    <div class="input-helper">Втор. позиция необязательна. GK/DEF/ATT/END — целые числа 0–10. Рейтинг больше не задаётся вручную — он всегда среднее этих четырёх навыков и пересчитывается на лету.</div>
+                    <div class="input-helper">Втор. позиция необязательна. GK/DEF/ATT/END — целые числа 0–10. Рейтинг не задаётся вручную: Атака весит 60%, GK/DEF/END делят оставшиеся 40% поровну, пересчитывается на лету.</div>
 
                     <div class="button-group">
                         <button class="btn-secondary" onclick="window.toggleBulkImport()">📥 Массовый ввод / экспорт списка</button>
@@ -697,10 +697,15 @@
             return window.roster.find(p => p.name.toLowerCase() === name.toLowerCase().trim());
         };
 
-        // Рейтинг больше не хранится отдельным полем — это всегда среднее
-        // четырёх целочисленных навыков, пересчитывается на лету.
+        // Рейтинг больше не хранится отдельным полем — это всегда взвешенное
+        // среднее четырёх целочисленных навыков, пересчитывается на лету.
+        // Атака (ATT) весит 60% рейтинга, GK/DEF/END делят оставшиеся 40%
+        // поровну (~13.3% каждый) — так игроки с высокой результативностью
+        // возглавляют список, а не вратари с сильной защитой но слабой атакой.
+        const ATT_WEIGHT = 0.6;
         window.playerRating = function(p) {
-            return (p.gk + p.def + p.att + p.end) / 4;
+            const otherWeight = (1 - ATT_WEIGHT) / 3;
+            return p.att * ATT_WEIGHT + (p.gk + p.def + p.end) * otherWeight;
         };
 
         window.updateRatingPreview = function() {
@@ -709,7 +714,7 @@
             const def = clampInt(parseFloat(document.getElementById('rosterDef').value));
             const att = clampInt(parseFloat(document.getElementById('rosterAtt').value));
             const end = clampInt(parseFloat(document.getElementById('rosterEnd').value));
-            document.getElementById('rosterRatingPreview').textContent = ((gk + def + att + end) / 4).toFixed(2);
+            document.getElementById('rosterRatingPreview').textContent = window.playerRating({ gk, def, att, end }).toFixed(2);
         };
 
         window.switchTab = function(tabName) {
