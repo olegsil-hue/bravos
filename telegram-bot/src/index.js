@@ -86,10 +86,23 @@ bot.command('players', ctx => {
 
 // Массовая привязка Telegram username → игрок, без /register для каждого.
 // Источник данных — поле «Telegram username» в веб-приложении (вкладка
-// «Игроки»): там же есть «Массовый ввод/экспорт», строки которого («Имя;
-// Поз1; Поз2; GK; DEF; ATT; END; username») можно вставить сюда как есть —
-// команда сама берёт первое поле как имя и последнее как username,
-// остальные игнорирует. Можно и просто «Имя; username» построчно.
+// «Игроки»): там же есть «Массовый ввод/экспорт», строки которого можно
+// вставить сюда как есть (см. extractPastedField ниже — как именно
+// достаётся нужное поле из такой строки). Можно и просто «Имя; username»
+// построчно.
+
+// Достаёт нужное поле из строки-заготовки: короткая форма «Имя; значение»
+// (ровно 2 части) — берём вторую часть; полная строка из «Массовый
+// ввод/экспорт» веб-приложения (8 полей до появления displayName, или 9
+// после: ...; username[; displayName]) — берём по ФИКСИРОВАННОМУ индексу,
+// а не «последнее поле», иначе после добавления displayName как 9-го
+// столбца /set_usernames начал бы путать его с username.
+function extractPastedField(parts, fixedIdx) {
+  if (parts.length === 2) return parts[1];
+  if (parts.length > fixedIdx) return parts[fixedIdx];
+  return parts[parts.length - 1]; // короче ожидаемого — берём как есть
+}
+
 bot.command('set_usernames', async ctx => {
   if (!isAdmin(ctx)) return ctx.reply('Эта команда только для администратора.');
   const body = ctx.message.text.replace(/^\/set_usernames(@\w+)?/, '').trim();
@@ -98,7 +111,7 @@ bot.command('set_usernames', async ctx => {
       'Использование: /set_usernames, а дальше — по одной строке на игрока:\n' +
       'Имя Фамилия; username\n\n' +
       'Можно вставить прямо строки из «Массовый ввод/экспорт» веб-приложения ' +
-      '(Имя; Поз1; Поз2; GK; DEF; ATT; END; username) — лишние поля посередине проигнорируются.'
+      '(Имя; Поз1; Поз2; GK; DEF; ATT; END; username; Отображаемое имя) — лишние поля проигнорируются.'
     );
   }
 
@@ -109,7 +122,7 @@ bot.command('set_usernames', async ctx => {
     const parts = line.split(';').map(p => p.trim());
     if (parts.length < 2) continue;
     const name = parts[0];
-    const username = parts[parts.length - 1];
+    const username = extractPastedField(parts, 7);
     if (!name) continue;
     const ok = db.setPlayerTelegramUsername(name, username);
     if (ok) updated++; else notFound.push(name);
@@ -135,7 +148,9 @@ bot.command('set_display_names', async ctx => {
       'Использование: /set_display_names, а дальше — по одной строке на игрока:\n' +
       'Имя Фамилия; Отображаемое имя в Telegram\n\n' +
       'Отображаемое имя — то, что видно в «Poll Results» или в самом чате ' +
-      '(может отличаться от настоящего имени и содержать эмодзи), не «@username».'
+      '(может отличаться от настоящего имени и содержать эмодзи), не «@username».\n\n' +
+      'Можно вставить прямо строки из «Массовый ввод/экспорт» веб-приложения ' +
+      '(Имя; Поз1; Поз2; GK; DEF; ATT; END; username; Отображаемое имя) — лишние поля проигнорируются.'
     );
   }
 
@@ -143,10 +158,10 @@ bot.command('set_display_names', async ctx => {
   let updated = 0;
   const notFound = [];
   for (const line of lines) {
-    const idx = line.indexOf(';');
-    if (idx === -1) continue;
-    const name = line.slice(0, idx).trim();
-    const displayName = line.slice(idx + 1).trim();
+    const parts = line.split(';').map(p => p.trim());
+    if (parts.length < 2) continue;
+    const name = parts[0];
+    const displayName = extractPastedField(parts, 8);
     if (!name || !displayName) continue;
     const ok = db.setPlayerTelegramDisplayName(name, displayName);
     if (ok) updated++; else notFound.push(name);
@@ -613,4 +628,4 @@ process.once('SIGTERM', () => bot.stop('SIGTERM'));
 // Диагностическая метка деплоя — если в логах есть эта строка, значит
 // Railway реально забрал самый свежий коммит из ветки, а не закешировал
 // старый билд.
-console.log('BUILD MARKER: display-name-matching (' + new Date().toISOString() + ')');
+console.log('BUILD MARKER: fixed-paste-field-index (' + new Date().toISOString() + ')');
