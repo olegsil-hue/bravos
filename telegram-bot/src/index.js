@@ -195,6 +195,56 @@ bot.command('divide_now', async ctx => {
   await sendDivisionForApproval(poll);
 });
 
+// Ручное занесение состава «Буду», когда список уже известен не из опроса
+// самого бота (например, опрос был создан вручную в группе стандартным
+// Telegram-опросом — Telegram присылает poll_answer только по опросам,
+// отправленным самим ботом через /poll, так что такой опрос бот в принципе
+// не видит). Админ вставляет реальные имена игроков (как в списке, см.
+// /players) по одному на строке — команда заводит технический «опрос» в
+// базе, засчитывает их как «Буду» и сразу присылает деление на апрув —
+// той же командой approve/regenerate, что и обычно.
+bot.command('manual_divide', async ctx => {
+  if (!isAdmin(ctx)) return ctx.reply('Эта команда только для администратора.');
+  const body = ctx.message.text.replace(/^\/manual_divide(@\w+)?/, '').trim();
+  if (!body) {
+    return ctx.reply(
+      'Использование: /manual_divide, а дальше — имена игроков «Буду» по одному на строке, как в /players.\n\n' +
+      'Нужно, когда опрос смотрели не через /poll бота (например, обычный Telegram-опрос в группе) — бот не получает голоса по чужим опросам.'
+    );
+  }
+
+  const names = body.split('\n').map(l => l.trim()).filter(l => l);
+  const found = [];
+  const notFound = [];
+  names.forEach(n => {
+    const p = db.findPlayerByName(n);
+    if (p) found.push(p.name); else notFound.push(n);
+  });
+
+  if (found.length < 2) {
+    return ctx.reply(
+      `❌ Нашёл в списке игроков только ${found.length} — этого мало для деления.` +
+      (notFound.length ? `\nНе нашёл (проверьте написание — должно точно совпадать со списком /players): ${notFound.join(', ')}` : '')
+    );
+  }
+
+  const eventDate = nextWednesday();
+  const pollId = db.createPoll({ telegramPollId: null, chatId: GROUP_CHAT_ID || ctx.chat.id, messageId: null, eventDate });
+  const poll = db.db.prepare('SELECT * FROM polls WHERE id = ?').get(pollId);
+
+  found.forEach((name, i) => {
+    const fakeId = -2000 - i - Date.now() % 1000; // отрицательный, гарантированно не реальный
+    db.linkTelegramUser(fakeId, `manual_${i}`, name);
+    db.recordPollResponse(poll.id, fakeId, OPT_IN);
+  });
+  db.closePoll(poll.id);
+
+  await ctx.reply(
+    `✅ Занесено ${found.length} игроков «Буду»${notFound.length ? ` (не нашёл: ${notFound.join(', ')})` : ''}. Считаю состав...`
+  );
+  await sendDivisionForApproval(poll);
+});
+
 // ===================================================================
 // Ответы на опрос
 // ===================================================================
@@ -451,4 +501,4 @@ process.once('SIGTERM', () => bot.stop('SIGTERM'));
 // Диагностическая метка деплоя — если в логах есть эта строка, значит
 // Railway реально забрал самый свежий коммит из ветки, а не закешировал
 // старый билд.
-console.log('BUILD MARKER: telegram-username-linking (' + new Date().toISOString() + ')');
+console.log('BUILD MARKER: manual-divide (' + new Date().toISOString() + ')');
