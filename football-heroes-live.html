@@ -507,6 +507,10 @@
                             <div id="rosterRatingPreview" class="rating-preview">5.00</div>
                         </div>
                         <div class="input-row">
+                            <label>Telegram username</label>
+                            <input type="text" id="rosterTelegram" placeholder="например: ivan_petrov">
+                        </div>
+                        <div class="input-row">
                             <button class="btn-primary" style="width: 100%;" onclick="window.addOrUpdatePlayer()" id="rosterSubmitBtn">➕ Добавить</button>
                         </div>
                     </div>
@@ -516,7 +520,7 @@
                         <div class="input-row"><label>⚽ Атака</label><input type="number" id="rosterAtt" min="0" max="10" step="1" value="5" oninput="window.updateRatingPreview()"></div>
                         <div class="input-row"><label>💪 Выносл.</label><input type="number" id="rosterEnd" min="0" max="10" step="1" value="5" oninput="window.updateRatingPreview()"></div>
                     </div>
-                    <div class="input-helper">Втор. позиция необязательна. GK/DEF/ATT/END — целые числа 0–10. Рейтинг не задаётся вручную: Атака весит 60%, GK/DEF/END делят оставшиеся 40% поровну, плюс фактор Гол/Пас (реальная результативность по играм) с весом 5% — пересчитывается на лету.</div>
+                    <div class="input-helper">Втор. позиция необязательна. GK/DEF/ATT/END — целые числа 0–10. Рейтинг не задаётся вручную: Атака весит 60%, GK/DEF/END делят оставшиеся 40% поровну, плюс фактор Гол/Пас (реальная результативность по играм) с весом 5% — пересчитывается на лету. Telegram username (без «@») — по нему бот в Telegram узнаёт игрока в опросе автоматически, без команды /register.</div>
 
                     <div class="button-group">
                         <button class="btn-secondary" onclick="window.toggleBulkImport()">📥 Массовый ввод / экспорт списка</button>
@@ -525,9 +529,9 @@
 
                     <div id="bulkImportSection" style="display: none; margin-top: 15px;">
                         <div class="input-row">
-                            <label>Список игроков (по одному на строку: Имя; Поз1; Поз2; Вратарь; Защита; Атака; Вынослив.)</label>
-                            <textarea id="bulkText" placeholder="Иван Петров; DEF; MID; 4; 7; 6; 5&#10;Сергей Орлов; GK; ; 8; 4; 3; 5"></textarea>
-                            <div class="input-helper">Поз2 можно оставить пустым. 4 навыка — целые числа 0–10, рейтинг считается как их среднее автоматически.</div>
+                            <label>Список игроков (по одному на строку: Имя; Поз1; Поз2; Вратарь; Защита; Атака; Вынослив.; Telegram username)</label>
+                            <textarea id="bulkText" placeholder="Иван Петров; DEF; MID; 4; 7; 6; 5; ivan_petrov&#10;Сергей Орлов; GK; ; 8; 4; 3; 5; "></textarea>
+                            <div class="input-helper">Поз2 можно оставить пустым. 4 навыка — целые числа 0–10, рейтинг считается как их среднее автоматически. Telegram username — последним столбцом, можно оставить пустым, «@» не нужен.</div>
                         </div>
                         <div class="button-group">
                             <button class="btn-primary" onclick="window.bulkImport()">📥 Импортировать</button>
@@ -684,6 +688,7 @@
                     }
                 });
                 if ('rating' in p) { delete p.rating; migrated = true; }
+                if (!('telegramUsername' in p)) { p.telegramUsername = null; migrated = true; }
             });
 
             if (migrated) window.saveData();
@@ -706,6 +711,12 @@
 
         window.findPlayer = function(name) {
             return window.roster.find(p => p.name.toLowerCase() === name.toLowerCase().trim());
+        };
+
+        // Убирает ведущий «@», пробелы и приводит к нижнему регистру — так
+        // хранится и сравнивается везде (Telegram-username регистронезависим).
+        window.normalizeTelegramUsername = function(raw) {
+            return (raw || '').trim().replace(/^@/, '').toLowerCase();
         };
 
         // Рейтинг больше не хранится отдельным полем — это всегда взвешенное
@@ -805,7 +816,9 @@
                 msgDiv.innerHTML = `<div class="message success-message">✓ Игрок «${name}» добавлен</div>`;
             }
 
-            window.roster.push({ name, pos1, pos2: pos2 || null, gk, def, att, end });
+            const telegramUsername = window.normalizeTelegramUsername(document.getElementById('rosterTelegram').value);
+
+            window.roster.push({ name, pos1, pos2: pos2 || null, gk, def, att, end, telegramUsername: telegramUsername || null });
             window.saveData();
 
             window.editingPlayerName = null;
@@ -817,6 +830,7 @@
             document.getElementById('rosterEnd').value = '5';
             document.getElementById('rosterPos1').value = 'MID';
             document.getElementById('rosterPos2').value = '';
+            document.getElementById('rosterTelegram').value = '';
             window.updateRatingPreview();
 
             window.renderRoster();
@@ -832,6 +846,7 @@
             document.getElementById('rosterDef').value = p.def;
             document.getElementById('rosterAtt').value = p.att;
             document.getElementById('rosterEnd').value = p.end;
+            document.getElementById('rosterTelegram').value = p.telegramUsername || '';
             window.editingPlayerName = p.name;
             document.getElementById('rosterSubmitBtn').textContent = '💾 Сохранить';
             document.getElementById('rosterName').focus();
@@ -886,6 +901,7 @@
                 const defRaw = parseFloat(parts[4]);
                 const attRaw = parseFloat(parts[5]);
                 const endRaw = parseFloat(parts[6]);
+                const telegramUsername = window.normalizeTelegramUsername(parts[7]);
 
                 if (!name || !POSITIONS.includes(pos1) || [gkRaw, defRaw, attRaw, endRaw].some(isNaN)) {
                     skipped++;
@@ -894,7 +910,7 @@
                 const gk = clampInt(gkRaw), def = clampInt(defRaw), att = clampInt(attRaw), end = clampInt(endRaw);
 
                 const existingIdx = window.roster.findIndex(p => p.name.toLowerCase() === name.toLowerCase());
-                const entry = { name, pos1, pos2: (POSITIONS.includes(pos2) && pos2 !== pos1) ? pos2 : null, gk, def, att, end };
+                const entry = { name, pos1, pos2: (POSITIONS.includes(pos2) && pos2 !== pos1) ? pos2 : null, gk, def, att, end, telegramUsername: telegramUsername || null };
 
                 if (existingIdx !== -1) {
                     window.roster[existingIdx] = entry;
@@ -912,7 +928,7 @@
         };
 
         window.bulkExport = function() {
-            const lines = window.roster.map(p => `${p.name}; ${p.pos1}; ${p.pos2 || ''}; ${p.gk}; ${p.def}; ${p.att}; ${p.end}`);
+            const lines = window.roster.map(p => `${p.name}; ${p.pos1}; ${p.pos2 || ''}; ${p.gk}; ${p.def}; ${p.att}; ${p.end}; ${p.telegramUsername || ''}`);
             document.getElementById('bulkText').value = lines.join('\n');
             document.getElementById('bulkImportSection').style.display = 'block';
         };
@@ -942,6 +958,7 @@
                                 <th>ATT</th>
                                 <th>END</th>
                                 <th>Г/П</th>
+                                <th>Telegram</th>
                                 <th>Действия</th>
                             </tr>
                         </thead>
@@ -959,6 +976,7 @@
                                     <td>${p.att}</td>
                                     <td>${p.end}</td>
                                     <td style="color:#666;">${gaFactor === null ? '—' : gaFactor.toFixed(1)}</td>
+                                    <td>${p.telegramUsername ? `<a href="https://t.me/${p.telegramUsername}" target="_blank" rel="noopener">@${p.telegramUsername}</a>` : '<span style="color:#999;">—</span>'}</td>
                                     <td>
                                         <button class="btn-secondary icon-btn" onclick="window.editPlayer('${p.name.replace(/'/g, "\\'")}')">✎</button>
                                         <button class="btn-danger icon-btn" onclick="window.deletePlayer('${p.name.replace(/'/g, "\\'")}')">✕</button>
@@ -969,7 +987,7 @@
                         </tbody>
                     </table>
                 </div>
-                <div class="input-helper" style="margin-top: 10px;">Всего игроков: ${window.roster.length}. «Г/П» — голы+передачи за игру ×2 (0–10), участвует в рейтинге с весом 5%. Прочерк — нет сыгранных игр.</div>
+                <div class="input-helper" style="margin-top: 10px;">Всего игроков: ${window.roster.length}. «Г/П» — голы+передачи за игру ×2 (0–10), участвует в рейтинге с весом 5%. Прочерк — нет сыгранных игр. «Telegram» — используется ботом для опроса, без «@» в поле ввода.</div>
             `;
         };
 
