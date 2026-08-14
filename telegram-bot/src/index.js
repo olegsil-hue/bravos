@@ -20,6 +20,16 @@ if (!TOKEN) {
   process.exit(1);
 }
 
+console.log(
+  `Конфигурация: TOKEN=${TOKEN.slice(0, 8)}… GROUP_CHAT_ID=${GROUP_CHAT_ID ?? 'не задан'} ` +
+  `ADMIN_USER_ID=${ADMIN_USER_ID ?? 'не задан'} TIMEZONE=${TIMEZONE}`
+);
+if (!GROUP_CHAT_ID) console.warn('⚠️ TELEGRAM_GROUP_CHAT_ID не задан — /poll и запись игр не смогут писать в группу.');
+if (!ADMIN_USER_ID) console.warn('⚠️ TELEGRAM_ADMIN_USER_ID не задан — некому будет прислать деление на апрув.');
+
+process.on('unhandledRejection', err => console.error('unhandledRejection:', err));
+process.on('uncaughtException', err => console.error('uncaughtException:', err));
+
 const bot = new Telegraf(TOKEN);
 
 const POLL_QUESTION = '⚽ Футбол в среду в 19:00 (до 15 человек)';
@@ -356,7 +366,26 @@ cron.schedule('0 18 * * 3', async () => {
   if (GROUP_CHAT_ID) await openGameRecording(GROUP_CHAT_ID);
 }, { timezone: TIMEZONE });
 
-bot.launch().then(() => console.log('Бот запущен.'));
+console.log('Подключаюсь к Telegram (getMe)...');
+
+const launchTimeout = setTimeout(() => {
+  console.error('⏱ bot.launch() не ответил за 15 секунд — похоже, сеть недоступна или Telegram API не отвечает.');
+}, 15000);
+
+bot.telegram.getMe()
+  .then(me => console.log(`Токен рабочий, это бот @${me.username}.`))
+  .catch(err => console.error('❌ getMe провалился — токен неверный или нет сети наружу:', err.message || err));
+
+bot.launch()
+  .then(() => {
+    clearTimeout(launchTimeout);
+    console.log('Бот запущен.');
+  })
+  .catch(err => {
+    clearTimeout(launchTimeout);
+    console.error('❌ Не удалось запустить бота (bot.launch упал):', err);
+    process.exit(1);
+  });
 
 process.once('SIGINT', () => bot.stop('SIGINT'));
 process.once('SIGTERM', () => bot.stop('SIGTERM'));
