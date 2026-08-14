@@ -297,6 +297,23 @@ function getLatestOpenPoll() {
   return db.prepare("SELECT * FROM polls WHERE status = 'open' ORDER BY id DESC LIMIT 1").get();
 }
 
+function getPollById(id) {
+  return db.prepare('SELECT * FROM polls WHERE id = ?').get(id);
+}
+
+// Список всех опросов с числом ответов — чтобы админ мог увидеть, если
+// открытых опросов оказалось несколько (getLatestOpenPoll берёт только
+// последний созданный, а не тот, где реально больше голосов), и явно
+// указать нужный поле /divide_now <id>.
+function getAllPollsWithCounts() {
+  return db.prepare(`
+    SELECT p.*,
+      (SELECT COUNT(*) FROM poll_responses r WHERE r.poll_id = p.id AND r.option_text = 'Буду') AS in_count,
+      (SELECT COUNT(*) FROM poll_responses r WHERE r.poll_id = p.id) AS total_count
+    FROM polls p ORDER BY p.id DESC
+  `).all();
+}
+
 function closePoll(pollId) {
   db.prepare("UPDATE polls SET status = 'closed' WHERE id = ?").run(pollId);
 }
@@ -351,6 +368,8 @@ module.exports = {
   createPoll,
   getOpenPollByTelegramId,
   getLatestOpenPoll,
+  getPollById,
+  getAllPollsWithCounts,
   closePoll,
   recordPollResponse,
   getPollResponses,

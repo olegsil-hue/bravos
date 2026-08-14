@@ -147,8 +147,24 @@ bot.command('status', ctx => {
   const responses = db.getPollResponses(poll.id);
   const inCount = responses.filter(r => r.option_text === OPT_IN).length;
   return ctx.reply(
-    `Опрос на ${poll.event_date}: ${responses.length} ответов, «${OPT_IN}» — ${inCount}.`
+    `Опрос #${poll.id} на ${poll.event_date}: ${responses.length} ответов, «${OPT_IN}» — ${inCount}.\n` +
+    `Если голосов ожидалось больше — возможно, есть ещё один открытый опрос: проверьте /polls.`
   );
+});
+
+// Список всех опросов (открытых и закрытых) с числом голосов — нужен,
+// когда открытых опросов оказалось несколько (например, случайно
+// оставленный тестовый) и /divide_now по умолчанию берёт не тот
+// (getLatestOpenPoll — это «последний СОЗДАННЫЙ», не «с наибольшим
+// числом голосов»). Отсюда видно id нужного опроса для /divide_now <id>.
+bot.command('polls', ctx => {
+  if (!isAdmin(ctx)) return ctx.reply('Эта команда только для администратора.');
+  const polls = db.getAllPollsWithCounts();
+  if (!polls.length) return ctx.reply('Опросов пока не было.');
+  const lines = polls.slice(0, 10).map(p =>
+    `#${p.id} — ${p.event_date} — ${p.status === 'open' ? '🟢 открыт' : '⚪ закрыт'} — «${OPT_IN}»: ${p.in_count}, всего: ${p.total_count}`
+  );
+  return ctx.reply('Опросы (последние 10):\n' + lines.join('\n') + '\n\nЧтобы поделить по конкретному: /divide_now <id>.');
 });
 
 // Тестовая команда: дозаполнить текущий опрос случайными игроками из
@@ -188,10 +204,19 @@ bot.command('simulate_votes', async ctx => {
 // не дожидаясь среды 12:00 по расписанию. Удобно для проверки после деплоя.
 bot.command('divide_now', async ctx => {
   if (!isAdmin(ctx)) return ctx.reply('Эта команда только для администратора.');
-  const poll = db.getLatestOpenPoll();
-  if (!poll) return ctx.reply('Открытых опросов нет — сначала /poll.');
+  const arg = ctx.message.text.replace(/^\/divide_now(@\w+)?/, '').trim();
+  const explicitId = arg ? parseInt(arg, 10) : null;
+
+  const poll = explicitId ? db.getPollById(explicitId) : db.getLatestOpenPoll();
+  if (!poll) {
+    return ctx.reply(
+      explicitId
+        ? `Опрос #${explicitId} не найден.`
+        : 'Открытых опросов нет — сначала /poll. Если опрос был, но уже закрыт не тем /divide_now — проверьте /polls и укажите id: /divide_now <id>.'
+    );
+  }
   db.closePoll(poll.id);
-  await ctx.reply('Считаю состав...');
+  await ctx.reply(`Считаю состав по опросу #${poll.id} (${poll.event_date})...`);
   await sendDivisionForApproval(poll);
 });
 
@@ -293,6 +318,28 @@ function chooseTeamCount(n) {
   return 3; // 11-15 человек — 3 команды по спецификации (лимит 15)
 }
 
+// Голос мог быть подан ДО того, как игроку занесли Telegram username (или
+// до деплоя самой этой функции) — тогда в момент голосования привязать
+// автоматически не получилось, а сам poll_answer с его username к этому
+// моменту уже не переспросить. Но username — статичное свойство профиля,
+// не самого голоса, поэтому можно спросить у Telegram прямо сейчас: кто
+// это, по telegram_user_id (getChatMember), и сверить с полем username
+// у игроков. Используется как повторная попытка перед делением.
+async function tryLinkByFetchingUsername(telegramUserId) {
+  if (!GROUP_CHAT_ID) return null;
+  try {
+    const member = await bot.telegram.getChatMember(GROUP_CHAT_ID, telegramUserId);
+    const username = member && member.user && member.user.username;
+    if (!username) return null;
+    const player = db.findPlayerByTelegramUsername(username);
+    if (!player) return null;
+    db.linkTelegramUser(telegramUserId, username, player.name);
+    return player.name;
+  } catch (e) {
+    return null; // пользователь мог выйти из группы, скрыть username и т.п.
+  }
+}
+
 async function runDivisionForPoll(poll) {
   const responses = db.getPollResponses(poll.id);
   const inResponses = responses.filter(r => r.option_text === OPT_IN);
@@ -302,12 +349,13 @@ async function runDivisionForPoll(poll) {
 
   const players = [];
   const notLinked = [];
-  inResponses.forEach(r => {
-    const playerName = db.getPlayerNameByTelegramId(r.telegram_user_id);
-    if (!playerName) { notLinked.push(r.telegram_user_id); return; }
+  for (const r of inResponses) {
+    let playerName = db.getPlayerNameByTelegramId(r.telegram_user_id);
+    if (!playerName) playerName = await tryLinkByFetchingUsername(r.telegram_user_id);
+    if (!playerName) { notLinked.push(r.telegram_user_id); continue; }
     const p = roster.find(x => x.name === playerName);
     if (p) players.push({ ...p, totalRating: playerRating(p, gameStats) });
-  });
+  }
 
   if (players.length < 2) {
     return { error: `Недостаточно привязанных игроков для деления (${players.length}). Не привязаны: ${notLinked.length}.` };
@@ -501,4 +549,4 @@ process.once('SIGTERM', () => bot.stop('SIGTERM'));
 // Диагностическая метка деплоя — если в логах есть эта строка, значит
 // Railway реально забрал самый свежий коммит из ветки, а не закешировал
 // старый билд.
-console.log('BUILD MARKER: manual-divide (' + new Date().toISOString() + ')');
+console.log('BUILD MARKER: polls-and-retroactive-link (' + new Date().toISOString() + ')');
