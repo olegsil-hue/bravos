@@ -102,6 +102,39 @@ bot.command('status', ctx => {
   );
 });
 
+// Тестовая команда: дозаполнить текущий опрос случайными игроками из
+// списка (фейковые telegram_user_id, отрицательные — не пересекутся с
+// реальными). Не трогает уже поданные настоящие голоса. Нужна, чтобы
+// проверить деление и запись игр без сбора реальных 9-15 человек.
+bot.command('simulate_votes', async ctx => {
+  if (!isAdmin(ctx)) return ctx.reply('Эта команда только для администратора.');
+  const poll = db.getLatestOpenPoll();
+  if (!poll) return ctx.reply('Открытых опросов нет — сначала /poll.');
+
+  const arg = ctx.message.text.replace(/^\/simulate_votes(@\w+)?/, '').trim();
+  const count = Math.max(1, Math.min(15, parseInt(arg, 10) || 9));
+
+  const alreadyLinkedNames = new Set(
+    db.getPollResponses(poll.id)
+      .map(r => db.getPlayerNameByTelegramId(r.telegram_user_id))
+      .filter(Boolean)
+  );
+  const pool = db.getRoster().map(p => p.name).filter(n => !alreadyLinkedNames.has(n));
+  for (let i = pool.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [pool[i], pool[j]] = [pool[j], pool[i]];
+  }
+  const picked = pool.slice(0, count);
+
+  picked.forEach((name, i) => {
+    const fakeId = -1000 - i - Date.now() % 1000; // отрицательный, гарантированно не реальный
+    db.linkTelegramUser(fakeId, `test_${i}`, name);
+    db.recordPollResponse(poll.id, fakeId, OPT_IN);
+  });
+
+  return ctx.reply(`✅ Добавлено ${picked.length} тестовых голосов «${OPT_IN}»: ${picked.join(', ')}`);
+});
+
 // Тестовая команда: закрыть опрос и прислать деление на апрув прямо сейчас,
 // не дожидаясь среды 12:00 по расписанию. Удобно для проверки после деплоя.
 bot.command('divide_now', async ctx => {
