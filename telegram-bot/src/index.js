@@ -393,3 +393,8 @@ cron.schedule('0 18 * * 3', async () => {
 
 process.once('SIGINT', () => bot.stop('SIGINT'));
 process.once('SIGTERM', () => bot.stop('SIGTERM'));
+
+// Диагностическая метка деплоя — если в логах есть эта строка, значит
+// Railway реально забрал самый свежий коммит из ветки, а не закешировал
+// старый билд.
+console.log('BUILD MARKER: 5c024bb+1 (' + new Date().toISOString() + ')');
