@@ -366,26 +366,30 @@ cron.schedule('0 18 * * 3', async () => {
   if (GROUP_CHAT_ID) await openGameRecording(GROUP_CHAT_ID);
 }, { timezone: TIMEZONE });
 
-console.log('Подключаюсь к Telegram (getMe)...');
+// Пошагово, а не через bot.launch() целиком — чтобы точно видеть, на каком
+// именно шаге зависает (getMe / deleteWebhook / старт поллинга), если
+// зависнет. Каждый шаг логируется отдельно.
+(async () => {
+  const heartbeat = setInterval(() => console.log('...жду ответа от Telegram...'), 5000);
+  try {
+    console.log('Шаг 1/3: getMe()...');
+    const me = await bot.telegram.getMe();
+    console.log(`Шаг 1/3 OK: это бот @${me.username}.`);
 
-const launchTimeout = setTimeout(() => {
-  console.error('⏱ bot.launch() не ответил за 15 секунд — похоже, сеть недоступна или Telegram API не отвечает.');
-}, 15000);
+    console.log('Шаг 2/3: deleteWebhook() (на случай, если где-то остался вебхук)...');
+    await bot.telegram.deleteWebhook({ drop_pending_updates: false });
+    console.log('Шаг 2/3 OK.');
 
-bot.telegram.getMe()
-  .then(me => console.log(`Токен рабочий, это бот @${me.username}.`))
-  .catch(err => console.error('❌ getMe провалился — токен неверный или нет сети наружу:', err.message || err));
-
-bot.launch()
-  .then(() => {
-    clearTimeout(launchTimeout);
-    console.log('Бот запущен.');
-  })
-  .catch(err => {
-    clearTimeout(launchTimeout);
-    console.error('❌ Не удалось запустить бота (bot.launch упал):', err);
+    console.log('Шаг 3/3: bot.launch() — старт поллинга...');
+    await bot.launch();
+    console.log('Шаг 3/3 OK. Бот запущен.');
+  } catch (err) {
+    console.error('❌ Запуск бота провалился:', err);
+    clearInterval(heartbeat);
     process.exit(1);
-  });
+  }
+  clearInterval(heartbeat);
+})();
 
 process.once('SIGINT', () => bot.stop('SIGINT'));
 process.once('SIGTERM', () => bot.stop('SIGTERM'));
