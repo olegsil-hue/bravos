@@ -5,9 +5,10 @@ const { Telegraf, Markup } = require('telegraf');
 const cron = require('node-cron');
 
 const db = require('./db');
-const { computePlayerGameStats } = require('./core/stats');
+const { computePlayerGameStats, computeStandings, computeDayPersonalStats } = require('./core/stats');
 const { playerRating } = require('./core/rating');
 const { smartDivide, optimizeTeamBalance } = require('./core/division');
+const gameRecording = require('./gameRecording');
 
 const TOKEN = process.env.TELEGRAM_BOT_TOKEN;
 const GROUP_CHAT_ID = process.env.TELEGRAM_GROUP_CHAT_ID ? Number(process.env.TELEGRAM_GROUP_CHAT_ID) : null;
@@ -228,7 +229,7 @@ bot.action(/^approve_(\d+)$/, async ctx => {
   });
 
   await ctx.editMessageReplyMarkup(undefined);
-  await ctx.reply('✅ Утверждено. Состав сохранён, вечером в среду откроется запись игр (эта часть — в следующей версии бота).');
+  await ctx.reply('✅ Утверждено. Состав сохранён. Запись игр откроется в среду в 18:00 (или запустите /start_game вручную для проверки).');
 
   if (GROUP_CHAT_ID) {
     const announce = formatTeamsMessage(division.teams, poll.event_date);
@@ -251,8 +252,64 @@ bot.action(/^regenerate_(\d+)$/, async ctx => {
 });
 
 // ===================================================================
+// Запись игр (Игра 1, Игра 2, ... — проигравшая команда уступает место)
+// ===================================================================
+
+async function openGameRecording(chatId) {
+  const day = db.getLatestGameDayByStatus('approved');
+  if (!day) {
+    if (ADMIN_USER_ID) await bot.telegram.sendMessage(ADMIN_USER_ID, '❌ Нет утверждённого состава на сегодня — нечего открывать.');
+    return;
+  }
+  await bot.telegram.sendMessage(chatId, `🟢 Запись игр открыта на ${day.date}!`);
+  await gameRecording.startGameDay(bot, day, chatId);
+}
+
+// Ручной запуск для проверки — не ждать среды 18:00.
+bot.command('start_game', async ctx => {
+  if (!isAdmin(ctx)) return ctx.reply('Эта команда только для администратора.');
+  await openGameRecording(ctx.chat.id);
+});
+
+bot.command('end_day', async ctx => {
+  if (!isAdmin(ctx)) return ctx.reply('Эта команда только для администратора.');
+  const day = db.getLatestGameDayByStatus('in_progress') || db.getLatestGameDayByStatus('approved');
+  if (!day) return ctx.reply('Нет открытого игрового дня.');
+
+  const finished = gameRecording.finishGameDay(day.id);
+  if (finished.teams.length < 2 || finished.matches.length === 0) {
+    return ctx.reply('Матчей ещё не было записано — итоги считать не из чего.');
+  }
+
+  const standings = computeStandings(finished);
+  const personal = computeDayPersonalStats(finished);
+  const teamName = idx => (finished.teams[idx] ? finished.teams[idx].name : `Команда ${idx + 1}`);
+
+  const lines = [`🏆 Итоги ${finished.date}\n`, 'Итоговая таблица:'];
+  standings.forEach((s, i) => {
+    const medal = ['🥇', '🥈', '🥉'][i] || '';
+    lines.push(`${medal} ${teamName(s.idx)} — И:${s.gp} В:${s.w} Н:${s.d} П:${s.l} Голы:${s.gf}:${s.ga} Очки:${s.pts}`);
+  });
+  lines.push('\nЛичная статистика:');
+  personal.forEach(p => lines.push(`${p.name} (${teamName(p.teamIdx)}) — ⚽${p.goals} 🎯${p.assists}`));
+
+  await ctx.reply(lines.join('\n'));
+  if (GROUP_CHAT_ID) await bot.telegram.sendMessage(GROUP_CHAT_ID, lines.join('\n'));
+});
+
+// --- Кнопки записи гола/паса ---
+
+bot.action(/^goal_(\d+)_(\d+)$/, ctx => gameRecording.handleGoalButton(bot, ctx, Number(ctx.match[1]), Number(ctx.match[2])));
+bot.action(/^scorer_(\d+)_(\d+)_(\d+)$/, ctx => gameRecording.handleScorerPick(bot, ctx, Number(ctx.match[1]), Number(ctx.match[2]), Number(ctx.match[3])));
+bot.action(/^assist_(\d+)_(\d+)_(none|\d+)$/, ctx => gameRecording.finalizeGoal(bot, ctx, Number(ctx.match[1]), Number(ctx.match[2]), ctx.match[3]));
+bot.action(/^undo_(\d+)$/, ctx => gameRecording.handleUndo(bot, ctx, Number(ctx.match[1])));
+bot.action(/^cancelpick_(\d+)$/, ctx => gameRecording.handleCancelPick(bot, ctx, Number(ctx.match[1])));
+bot.action(/^endmatch_(\d+)$/, ctx => gameRecording.handleEndMatch(bot, ctx, Number(ctx.match[1])));
+bot.action(/^pk_(\d+)_(none|\d+)$/, ctx => gameRecording.handlePenaltyWinner(bot, ctx, Number(ctx.match[1]), ctx.match[2]));
+
+// ===================================================================
 // Планировщик: среда 12:00 — закрыть опрос и отправить деление на апрув.
-// Среда 18:00 (запись игр) — заглушка, следующая версия бота.
+// Среда 18:00 — открыть запись игр в группе.
 // ===================================================================
 
 cron.schedule('0 12 * * 3', async () => {
@@ -263,12 +320,7 @@ cron.schedule('0 12 * * 3', async () => {
 }, { timezone: TIMEZONE });
 
 cron.schedule('0 18 * * 3', async () => {
-  if (ADMIN_USER_ID) {
-    await bot.telegram.sendMessage(
-      ADMIN_USER_ID,
-      '⏰ 18:00 среды — запись игр ещё не реализована в этой версии бота.'
-    );
-  }
+  if (GROUP_CHAT_ID) await openGameRecording(GROUP_CHAT_ID);
 }, { timezone: TIMEZONE });
 
 bot.launch().then(() => console.log('Бот запущен.'));
