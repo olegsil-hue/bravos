@@ -95,6 +95,9 @@ const playerColumns = db.prepare("PRAGMA table_info(players)").all().map(c => c.
 if (!playerColumns.includes('telegram_username')) {
   db.exec('ALTER TABLE players ADD COLUMN telegram_username TEXT');
 }
+if (!playerColumns.includes('telegram_display_name')) {
+  db.exec('ALTER TABLE players ADD COLUMN telegram_display_name TEXT');
+}
 
 function seedIfEmpty() {
   const count = db.prepare('SELECT COUNT(*) AS c FROM players').get().c;
@@ -130,11 +133,11 @@ seedIfEmpty();
 // --- Игроки ---
 
 function getRoster() {
-  return db.prepare('SELECT name, pos1, pos2, gk, def, att, end_ AS end, telegram_username AS telegramUsername FROM players').all();
+  return db.prepare('SELECT name, pos1, pos2, gk, def, att, end_ AS end, telegram_username AS telegramUsername, telegram_display_name AS telegramDisplayName FROM players').all();
 }
 
 function findPlayerByName(name) {
-  return db.prepare('SELECT name, pos1, pos2, gk, def, att, end_ AS end, telegram_username AS telegramUsername FROM players WHERE name = ?').get(name);
+  return db.prepare('SELECT name, pos1, pos2, gk, def, att, end_ AS end, telegram_username AS telegramUsername, telegram_display_name AS telegramDisplayName FROM players WHERE name = ?').get(name);
 }
 
 // Убирает ведущий «@» и приводит к нижнему регистру — так же, как в
@@ -154,6 +157,27 @@ function findPlayerByTelegramUsername(username) {
 function setPlayerTelegramUsername(name, username) {
   const normalized = normalizeTelegramUsername(username);
   const info = db.prepare('UPDATE players SET telegram_username = ? WHERE name = ?').run(normalized || null, name);
+  return info.changes > 0;
+}
+
+// Отображаемое имя (first_name + last_name) в отличие от username —
+// произвольный ник, который человек может задать как угодно (без «@»,
+// эмодзи и т.п.) — сравниваем только по обрезанным пробелам и регистру,
+// без изменения самого текста, чтобы не потерять эмодзи при копировании
+// из «Poll Results».
+function normalizeTelegramDisplayName(raw) {
+  return (raw || '').trim().replace(/\s+/g, ' ').toLowerCase();
+}
+
+function findPlayerByTelegramDisplayName(displayName) {
+  const normalized = normalizeTelegramDisplayName(displayName);
+  if (!normalized) return null;
+  const players = db.prepare('SELECT name, pos1, pos2, gk, def, att, end_ AS end, telegram_username AS telegramUsername, telegram_display_name AS telegramDisplayName FROM players').all();
+  return players.find(p => normalizeTelegramDisplayName(p.telegramDisplayName) === normalized) || null;
+}
+
+function setPlayerTelegramDisplayName(name, displayName) {
+  const info = db.prepare('UPDATE players SET telegram_display_name = ? WHERE name = ?').run(displayName ? displayName.trim() : null, name);
   return info.changes > 0;
 }
 
@@ -357,6 +381,8 @@ module.exports = {
   findPlayerByTelegramUsername,
   setPlayerTelegramUsername,
   normalizeTelegramUsername,
+  findPlayerByTelegramDisplayName,
+  setPlayerTelegramDisplayName,
   getAllGameDaysForStats,
   insertGameDay,
   getGameDayById,

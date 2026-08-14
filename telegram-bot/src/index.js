@@ -77,7 +77,10 @@ bot.command('register', async ctx => {
 
 bot.command('players', ctx => {
   const roster = db.getRoster().sort((a, b) => a.name.localeCompare(b.name, 'ru'));
-  const lines = roster.map(p => p.telegramUsername ? `${p.name} — @${p.telegramUsername}` : p.name);
+  const lines = roster.map(p => {
+    const tags = [p.telegramUsername ? `@${p.telegramUsername}` : null, p.telegramDisplayName ? `«${p.telegramDisplayName}»` : null].filter(Boolean);
+    return tags.length ? `${p.name} — ${tags.join(', ')}` : p.name;
+  });
   return ctx.reply('Список игроков:\n' + lines.join('\n'));
 });
 
@@ -113,6 +116,43 @@ bot.command('set_usernames', async ctx => {
   }
 
   let reply = `✅ Обновлено username: ${updated}.`;
+  if (notFound.length) reply += `\n⚠️ Не найдены в списке игроков: ${notFound.join(', ')}`;
+  return ctx.reply(reply);
+});
+
+// Отображаемое имя в Telegram (first_name + last_name) — запасной способ
+// узнать голосующего, у которого вообще нет @username (частый случай).
+// В отличие от username это произвольный ник (эмодзи, что угодно) — не
+// выводится автоматически из настоящего имени, поэтому так же требует
+// разовой ручной привязки, просто ловит других людей. Разделитель — «;»,
+// как и в /set_usernames; текст справа от последней «;» на строке
+// сохраняется как есть (с пробелами и эмодзи), только обрезается по краям.
+bot.command('set_display_names', async ctx => {
+  if (!isAdmin(ctx)) return ctx.reply('Эта команда только для администратора.');
+  const body = ctx.message.text.replace(/^\/set_display_names(@\w+)?/, '').trim();
+  if (!body) {
+    return ctx.reply(
+      'Использование: /set_display_names, а дальше — по одной строке на игрока:\n' +
+      'Имя Фамилия; Отображаемое имя в Telegram\n\n' +
+      'Отображаемое имя — то, что видно в «Poll Results» или в самом чате ' +
+      '(может отличаться от настоящего имени и содержать эмодзи), не «@username».'
+    );
+  }
+
+  const lines = body.split('\n').map(l => l.trim()).filter(l => l);
+  let updated = 0;
+  const notFound = [];
+  for (const line of lines) {
+    const idx = line.indexOf(';');
+    if (idx === -1) continue;
+    const name = line.slice(0, idx).trim();
+    const displayName = line.slice(idx + 1).trim();
+    if (!name || !displayName) continue;
+    const ok = db.setPlayerTelegramDisplayName(name, displayName);
+    if (ok) updated++; else notFound.push(name);
+  }
+
+  let reply = `✅ Обновлено отображаемых имён: ${updated}.`;
   if (notFound.length) reply += `\n⚠️ Не найдены в списке игроков: ${notFound.join(', ')}`;
   return ctx.reply(reply);
 });
@@ -274,6 +314,31 @@ bot.command('manual_divide', async ctx => {
 // Ответы на опрос
 // ===================================================================
 
+// Отображаемое имя в Telegram — first_name (+ last_name, если есть). В
+// отличие от username оно есть почти всегда, но само по себе — вольный
+// ник, не связанный с настоящим именем.
+function telegramDisplayName(user) {
+  if (!user) return null;
+  return [user.first_name, user.last_name].filter(Boolean).join(' ') || null;
+}
+
+// Пробует опознать голосующего по username или отображаемому имени (в
+// этом порядке — username надёжнее). Возвращает имя игрока или null.
+// user — объект вида { id, username, first_name, last_name }.
+function matchPlayerByTelegramUser(user) {
+  if (!user) return null;
+  if (user.username) {
+    const byUsername = db.findPlayerByTelegramUsername(user.username);
+    if (byUsername) return byUsername.name;
+  }
+  const displayName = telegramDisplayName(user);
+  if (displayName) {
+    const byDisplayName = db.findPlayerByTelegramDisplayName(displayName);
+    if (byDisplayName) return byDisplayName.name;
+  }
+  return null;
+}
+
 bot.on('poll_answer', async ctx => {
   const answer = ctx.update.poll_answer;
   const poll = db.getOpenPollByTelegramId(answer.poll_id);
@@ -285,16 +350,15 @@ bot.on('poll_answer', async ctx => {
   const optionText = answer.option_ids[0] === 0 ? OPT_IN : OPT_OUT;
   db.recordPollResponse(poll.id, answer.user.id, optionText);
 
-  // Автопривязка по Telegram username — если ещё не привязан по id, но его
-  // username совпадает с полем «Telegram username» игрока (заполняется в
-  // веб-приложении или через /set_usernames), связываем автоматически и
-  // /register больше не требуется.
+  // Автопривязка по username или отображаемому имени (заполняются в
+  // веб-приложении, либо через /set_usernames и /set_display_names) —
+  // связываем автоматически, /register больше не требуется.
   let playerName = db.getPlayerNameByTelegramId(answer.user.id);
-  if (!playerName && answer.user.username) {
-    const byUsername = db.findPlayerByTelegramUsername(answer.user.username);
-    if (byUsername) {
-      db.linkTelegramUser(answer.user.id, answer.user.username, byUsername.name);
-      playerName = byUsername.name;
+  if (!playerName) {
+    const matched = matchPlayerByTelegramUser(answer.user);
+    if (matched) {
+      db.linkTelegramUser(answer.user.id, answer.user.username, matched);
+      playerName = matched;
     }
   }
 
@@ -303,7 +367,7 @@ bot.on('poll_answer', async ctx => {
     try {
       await bot.telegram.sendMessage(
         answer.user.id,
-        'Голос учтён, но вы ещё не привязаны к игроку в списке (ваш Telegram username не совпадает ни с одним в списке игроков) — наберите /register Имя Фамилия, иначе я не смогу включить вас в деление на команды.'
+        'Голос учтён, но вы ещё не привязаны к игроку в списке (ни ваш Telegram username, ни отображаемое имя не совпали с записью в списке игроков) — наберите /register Имя Фамилия, иначе я не смогу включить вас в деление на команды.'
       );
     } catch (e) { /* пользователь мог не начинать диалог с ботом — не критично */ }
   }
@@ -318,25 +382,25 @@ function chooseTeamCount(n) {
   return 3; // 11-15 человек — 3 команды по спецификации (лимит 15)
 }
 
-// Голос мог быть подан ДО того, как игроку занесли Telegram username (или
-// до деплоя самой этой функции) — тогда в момент голосования привязать
-// автоматически не получилось, а сам poll_answer с его username к этому
-// моменту уже не переспросить. Но username — статичное свойство профиля,
-// не самого голоса, поэтому можно спросить у Telegram прямо сейчас: кто
-// это, по telegram_user_id (getChatMember), и сверить с полем username
-// у игроков. Используется как повторная попытка перед делением.
+// Голос мог быть подан ДО того, как игроку занесли Telegram username или
+// отображаемое имя (или до деплоя самой этой функции) — тогда в момент
+// голосования привязать автоматически не получилось, а сам poll_answer с
+// этими данными к этому моменту уже не переспросить. Но username и
+// отображаемое имя — статичные свойства профиля, не самого голоса,
+// поэтому можно спросить у Telegram прямо сейчас: кто это, по
+// telegram_user_id (getChatMember), и сверить с полями игроков.
+// Используется как повторная попытка перед делением.
 async function tryLinkByFetchingUsername(telegramUserId) {
   if (!GROUP_CHAT_ID) return null;
   try {
     const member = await bot.telegram.getChatMember(GROUP_CHAT_ID, telegramUserId);
-    const username = member && member.user && member.user.username;
-    if (!username) return null;
-    const player = db.findPlayerByTelegramUsername(username);
-    if (!player) return null;
-    db.linkTelegramUser(telegramUserId, username, player.name);
-    return player.name;
+    const user = member && member.user;
+    const matched = matchPlayerByTelegramUser(user);
+    if (!matched) return null;
+    db.linkTelegramUser(telegramUserId, user.username, matched);
+    return matched;
   } catch (e) {
-    return null; // пользователь мог выйти из группы, скрыть username и т.п.
+    return null; // пользователь мог выйти из группы и т.п.
   }
 }
 
@@ -549,4 +613,4 @@ process.once('SIGTERM', () => bot.stop('SIGTERM'));
 // Диагностическая метка деплоя — если в логах есть эта строка, значит
 // Railway реально забрал самый свежий коммит из ветки, а не закешировал
 // старый билд.
-console.log('BUILD MARKER: polls-and-retroactive-link (' + new Date().toISOString() + ')');
+console.log('BUILD MARKER: display-name-matching (' + new Date().toISOString() + ')');
