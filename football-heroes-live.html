@@ -282,6 +282,16 @@
             margin-top: 12px;
         }
         .roster-form-grid .input-row, .roster-form-grid2 .input-row { margin-bottom: 0; }
+        .rating-preview {
+            padding: 12px;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            font-size: 14px;
+            font-weight: 700;
+            color: #1e3c72;
+            background: #f5f5f5;
+            font-variant-numeric: tabular-nums;
+        }
 
         /* ===== Игровые дни ===== */
         .game-form-header-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; }
@@ -493,20 +503,20 @@
                             </select>
                         </div>
                         <div class="input-row">
-                            <label>Рейтинг (0–10)</label>
-                            <input type="number" id="rosterRating" min="0" max="10" step="0.1" value="5.0">
+                            <label>Рейтинг (авто)</label>
+                            <div id="rosterRatingPreview" class="rating-preview">5.00</div>
                         </div>
                         <div class="input-row">
                             <button class="btn-primary" style="width: 100%;" onclick="window.addOrUpdatePlayer()" id="rosterSubmitBtn">➕ Добавить</button>
                         </div>
                     </div>
                     <div class="roster-form-grid2">
-                        <div class="input-row"><label>🧤 Вратарь</label><input type="number" id="rosterGk" min="0" max="10" step="0.5" value="5"></div>
-                        <div class="input-row"><label>🛡️ Защита</label><input type="number" id="rosterDef" min="0" max="10" step="0.5" value="5"></div>
-                        <div class="input-row"><label>⚽ Атака</label><input type="number" id="rosterAtt" min="0" max="10" step="0.5" value="5"></div>
-                        <div class="input-row"><label>💪 Выносл.</label><input type="number" id="rosterEnd" min="0" max="10" step="0.5" value="5"></div>
+                        <div class="input-row"><label>🧤 Вратарь</label><input type="number" id="rosterGk" min="0" max="10" step="1" value="5" oninput="window.updateRatingPreview()"></div>
+                        <div class="input-row"><label>🛡️ Защита</label><input type="number" id="rosterDef" min="0" max="10" step="1" value="5" oninput="window.updateRatingPreview()"></div>
+                        <div class="input-row"><label>⚽ Атака</label><input type="number" id="rosterAtt" min="0" max="10" step="1" value="5" oninput="window.updateRatingPreview()"></div>
+                        <div class="input-row"><label>💪 Выносл.</label><input type="number" id="rosterEnd" min="0" max="10" step="1" value="5" oninput="window.updateRatingPreview()"></div>
                     </div>
-                    <div class="input-helper">Втор. позиция необязательна. «Рейтинг» балансирует команды, 4 навыка ниже — только для отображения средних показателей команды.</div>
+                    <div class="input-helper">Втор. позиция необязательна. GK/DEF/ATT/END — целые числа 0–10. Рейтинг больше не задаётся вручную — он всегда среднее этих четырёх навыков и пересчитывается на лету.</div>
 
                     <div class="button-group">
                         <button class="btn-secondary" onclick="window.toggleBulkImport()">📥 Массовый ввод / экспорт списка</button>
@@ -515,9 +525,9 @@
 
                     <div id="bulkImportSection" style="display: none; margin-top: 15px;">
                         <div class="input-row">
-                            <label>Список игроков (по одному на строку: Имя; Поз1; Поз2; Рейтинг; [Вратарь; Защита; Атака; Вынослив.])</label>
-                            <textarea id="bulkText" placeholder="Иван Петров; DEF; MID; 6.5&#10;Сергей Орлов; GK; ; 7.0; 8; 4; 3; 5"></textarea>
-                            <div class="input-helper">Поз2 можно оставить пустым. Последние 4 числа необязательны — если их нет, навыки берутся равными рейтингу.</div>
+                            <label>Список игроков (по одному на строку: Имя; Поз1; Поз2; Вратарь; Защита; Атака; Вынослив.)</label>
+                            <textarea id="bulkText" placeholder="Иван Петров; DEF; MID; 4; 7; 6; 5&#10;Сергей Орлов; GK; ; 8; 4; 3; 5"></textarea>
+                            <div class="input-helper">Поз2 можно оставить пустым. 4 навыка — целые числа 0–10, рейтинг считается как их среднее автоматически.</div>
                         </div>
                         <div class="button-group">
                             <button class="btn-primary" onclick="window.bulkImport()">📥 Импортировать</button>
@@ -586,7 +596,7 @@
             { bg: '#8e24aa', text: '#ffffff' }  // 5 — фиолетовый
         ];
 
-        const SEED_ROSTER = [{"name": "Дима Корольков", "pos1": "GK", "pos2": "DEF", "rating": 3.51, "gk": 9, "def": 3, "att": 3, "end": 4}, {"name": "Олег Сильченко", "pos1": "DEF", "pos2": "MID", "rating": 3.7, "gk": 4, "def": 9, "att": 5, "end": 8}, {"name": "Паша Орлов", "pos1": "DEF", "pos2": "MID", "rating": 4.67, "gk": 3, "def": 9, "att": 6, "end": 7}, {"name": "Олег Иохин", "pos1": "ST", "pos2": "MID", "rating": 4.45, "gk": 3, "def": 5, "att": 9, "end": 4}, {"name": "Паша Тренин", "pos1": "MID", "pos2": "ST", "rating": 4.36, "gk": 1, "def": 5, "att": 8, "end": 7}, {"name": "Илья Сыван", "pos1": "DEF", "pos2": "MID", "rating": 4.42, "gk": 5, "def": 8, "att": 6, "end": 7}, {"name": "Андрей Берликов", "pos1": "DEF", "pos2": "MID", "rating": 3.39, "gk": 3, "def": 6, "att": 4, "end": 5}, {"name": "Паша Пахомов", "pos1": "DEF", "pos2": "MID", "rating": 2.89, "gk": 2, "def": 4, "att": 4, "end": 4}, {"name": "Саша Скрывля", "pos1": "MID", "pos2": "GK", "rating": 4.78, "gk": 6, "def": 7, "att": 7, "end": 8}, {"name": "Витинька", "pos1": "MID", "pos2": "ST", "rating": 4.66, "gk": 6, "def": 7, "att": 8, "end": 8}, {"name": "Миша Фирсков", "pos1": "ST", "pos2": "MID", "rating": 2.67, "gk": 3, "def": 3, "att": 4, "end": 5}, {"name": "Паша Вирник", "pos1": "ST", "pos2": "MID", "rating": 4.13, "gk": 2, "def": 4, "att": 7, "end": 5}, {"name": "Женя Клюшин", "pos1": "DEF", "pos2": "GK", "rating": 4.44, "gk": 7, "def": 8, "att": 5, "end": 7}, {"name": "Дима Князев", "pos1": "MID", "pos2": "ST", "rating": 5.27, "gk": 2, "def": 7, "att": 10, "end": 8}, {"name": "Игорь Еремеев", "pos1": "DEF", "pos2": "MID", "rating": 3.76, "gk": 2, "def": 6, "att": 5, "end": 6}, {"name": "Алексей Милованович", "pos1": "GK", "pos2": "DEF", "rating": 4.79, "gk": 9, "def": 8, "att": 5, "end": 7}, {"name": "Андрей", "pos1": "DEF", "pos2": "MID", "rating": 3.39, "gk": 3, "def": 6, "att": 5, "end": 5}, {"name": "Сурен", "pos1": "GK", "pos2": "DEF", "rating": 3.57, "gk": 8, "def": 3, "att": 3, "end": 4}, {"name": "Саша Ли", "pos1": "ST", "pos2": "DEF", "rating": 3.46, "gk": 2, "def": 4, "att": 7, "end": 4}, {"name": "Кирилл Лизунов", "pos1": "ST", "pos2": "MID", "rating": 3.71, "gk": 5, "def": 5, "att": 8, "end": 5}, {"name": "Миша Комков", "pos1": "DEF", "pos2": "MID", "rating": 3.64, "gk": 2, "def": 6, "att": 5, "end": 7}, {"name": "Антон Борисов", "pos1": "MID", "pos2": "DEF", "rating": 4.42, "gk": 3, "def": 8, "att": 6, "end": 7}, {"name": "Алексей Зайцев", "pos1": "DEF", "pos2": "MID", "rating": 3.76, "gk": 3, "def": 6, "att": 4, "end": 6}, {"name": "Петр Звенигородский", "pos1": "DEF", "pos2": "MID", "rating": 3.76, "gk": 4, "def": 6, "att": 4, "end": 6}, {"name": "Миша от Клюшина", "pos1": "DEF", "pos2": "MID", "rating": 4.1, "gk": 2, "def": 8, "att": 6, "end": 7}, {"name": "Максим Савиола", "pos1": "MID", "pos2": "DEF", "rating": 3.57, "gk": 2, "def": 7, "att": 6, "end": 4}, {"name": "Дима Войнаревич", "pos1": "MID", "pos2": "ST", "rating": 3.57, "gk": 3, "def": 5, "att": 7, "end": 6}, {"name": "Максим (от Игоря)", "pos1": "MID", "pos2": "ST", "rating": 3.39, "gk": 2, "def": 5, "att": 7, "end": 5}, {"name": "Ваня от Клюшина", "pos1": "MID", "pos2": "ST", "rating": 4.71, "gk": 3, "def": 6, "att": 7, "end": 6}, {"name": "Георгий Вагин", "pos1": "DEF", "pos2": "MID", "rating": 3.57, "gk": 3, "def": 6, "att": 5, "end": 6}, {"name": "Дима Фродин", "pos1": "MID", "pos2": "DEF", "rating": 2.34, "gk": 2, "def": 3, "att": 4, "end": 3}, {"name": "Дима от Андрея", "pos1": "DEF", "pos2": "MID", "rating": 3.15, "gk": 3, "def": 3.15, "att": 3.15, "end": 3.15}, {"name": "Влад от Игоря", "pos1": "MID", "pos2": "ST", "rating": 4.17, "gk": 4.17, "def": 4.17, "att": 4.17, "end": 4.17}, {"name": "Иван от Ивана", "pos1": "MID", "pos2": null, "rating": 4.3, "gk": 4.3, "def": 4.3, "att": 4.3, "end": 4.3}];
+        const SEED_ROSTER = [{"name": "Дима Корольков", "pos1": "GK", "pos2": "DEF", "gk": 9, "def": 3, "att": 1, "end": 5}, {"name": "Олег Сильченко", "pos1": "DEF", "pos2": "MID", "gk": 4, "def": 8, "att": 5, "end": 9}, {"name": "Паша Орлов", "pos1": "DEF", "pos2": "MID", "gk": 3, "def": 10, "att": 5, "end": 8}, {"name": "Олег Иохин", "pos1": "ST", "pos2": "MID", "gk": 3, "def": 5, "att": 10, "end": 4}, {"name": "Паша Тренин", "pos1": "MID", "pos2": "ST", "gk": 1, "def": 5, "att": 10, "end": 8}, {"name": "Илья Сыван", "pos1": "DEF", "pos2": "MID", "gk": 5, "def": 8, "att": 6, "end": 8}, {"name": "Андрей Берликов", "pos1": "DEF", "pos2": "MID", "gk": 3, "def": 7, "att": 3, "end": 6}, {"name": "Паша Пахомов", "pos1": "DEF", "pos2": "MID", "gk": 2, "def": 4, "att": 3, "end": 4}, {"name": "Саша Скрывля", "pos1": "MID", "pos2": "GK", "gk": 6, "def": 7, "att": 7, "end": 9}, {"name": "Витинька", "pos1": "MID", "pos2": "ST", "gk": 6, "def": 7, "att": 9, "end": 7}, {"name": "Миша Фирсков", "pos1": "ST", "pos2": "MID", "gk": 3, "def": 5, "att": 4, "end": 6}, {"name": "Паша Вирник", "pos1": "ST", "pos2": "MID", "gk": 2, "def": 3, "att": 8, "end": 6}, {"name": "Женя Клюшин", "pos1": "DEF", "pos2": "GK", "gk": 7, "def": 9, "att": 5, "end": 8}, {"name": "Дима Князев", "pos1": "MID", "pos2": "ST", "gk": 2, "def": 7, "att": 10, "end": 8}, {"name": "Игорь Еремеев", "pos1": "DEF", "pos2": "MID", "gk": 2, "def": 7, "att": 4, "end": 6}, {"name": "Алексей Милованович", "pos1": "GK", "pos2": "DEF", "gk": 9, "def": 9, "att": 4, "end": 7}, {"name": "Андрей", "pos1": "DEF", "pos2": "MID", "gk": 3, "def": 8, "att": 4, "end": 4}, {"name": "Сурен", "pos1": "GK", "pos2": "DEF", "gk": 9, "def": 5, "att": 1, "end": 3}, {"name": "Саша Ли", "pos1": "ST", "pos2": "DEF", "gk": 2, "def": 2, "att": 8, "end": 4}, {"name": "Кирилл Лизунов", "pos1": "ST", "pos2": "MID", "gk": 5, "def": 3, "att": 10, "end": 5}, {"name": "Миша Комков", "pos1": "DEF", "pos2": "MID", "gk": 2, "def": 6, "att": 5, "end": 7}, {"name": "Антон Борисов", "pos1": "MID", "pos2": "DEF", "gk": 3, "def": 10, "att": 6, "end": 7}, {"name": "Алексей Зайцев", "pos1": "DEF", "pos2": "MID", "gk": 3, "def": 6, "att": 4, "end": 7}, {"name": "Петр Звенигородский", "pos1": "DEF", "pos2": "MID", "gk": 4, "def": 5, "att": 3, "end": 6}, {"name": "Миша от Клюшина", "pos1": "DEF", "pos2": "MID", "gk": 2, "def": 7, "att": 7, "end": 6}, {"name": "Максим Савиола", "pos1": "MID", "pos2": "DEF", "gk": 2, "def": 5, "att": 7, "end": 4}, {"name": "Дима Войнаревич", "pos1": "MID", "pos2": "ST", "gk": 3, "def": 6, "att": 6, "end": 5}, {"name": "Максим (от Игоря)", "pos1": "MID", "pos2": "ST", "gk": 2, "def": 3, "att": 6, "end": 4}, {"name": "Ваня от Клюшина", "pos1": "MID", "pos2": "ST", "gk": 3, "def": 5, "att": 8, "end": 6}, {"name": "Георгий Вагин", "pos1": "DEF", "pos2": "MID", "gk": 3, "def": 6, "att": 4, "end": 5}, {"name": "Дима Фродин", "pos1": "MID", "pos2": "DEF", "gk": 2, "def": 1, "att": 3, "end": 2}, {"name": "Дима от Андрея", "pos1": "DEF", "pos2": "MID", "gk": 3, "def": 5, "att": 1, "end": 2}, {"name": "Влад от Игоря", "pos1": "MID", "pos2": "ST", "gk": 4, "def": 6, "att": 4, "end": 3}, {"name": "Иван от Ивана", "pos1": "MID", "pos2": null, "gk": 4, "def": 6, "att": 5, "end": 3}];
         const SEED_GAMEDAYS = [{"id": 1700000000000, "date": "21.01", "legacy": true, "teams": [{"name": "Команда 1", "colorIdx": 0, "players": ["Дима Корольков", "Олег Сильченко", "Паша Орлов", "Паша Тренин", "Паша Пахомов", "Саша Скрывля"]}, {"name": "Команда 2", "colorIdx": 1, "players": ["Алексей Милованович", "Андрей Берликов", "Миша Фирсков", "Илья Сыван", "Олег Иохин", "Витинька"]}], "legacyStats": [[{"name": "Дима Корольков", "goals": 0, "assists": 0}, {"name": "Олег Сильченко", "goals": 2, "assists": 0}, {"name": "Паша Орлов", "goals": 0, "assists": 1}, {"name": "Паша Тренин", "goals": 0, "assists": 0}, {"name": "Паша Пахомов", "goals": 0, "assists": 0}, {"name": "Саша Скрывля", "goals": 1, "assists": 0}], [{"name": "Алексей Милованович", "goals": 0, "assists": 0}, {"name": "Андрей Берликов", "goals": 0, "assists": 1}, {"name": "Миша Фирсков", "goals": 0, "assists": 0}, {"name": "Илья Сыван", "goals": 1, "assists": 0}, {"name": "Олег Иохин", "goals": 1, "assists": 1}, {"name": "Витинька", "goals": 1, "assists": 1}]], "matches": []}, {"id": 1700000000001, "date": "10.03", "legacy": true, "teams": [{"name": "Команда 1", "colorIdx": 0, "players": ["Дима Корольков", "Паша Пахомов", "Олег Сильченко", "Женя Клюшин", "Паша Вирник", "Игорь Еремеев"]}, {"name": "Команда 2", "colorIdx": 1, "players": ["Саша Скрывля", "Андрей Берликов", "Паша Орлов", "Илья Сыван", "Паша Тренин", "Миша Фирсков"]}], "legacyStats": [[{"name": "Дима Корольков", "goals": 0, "assists": 0}, {"name": "Паша Пахомов", "goals": 1, "assists": 0}, {"name": "Олег Сильченко", "goals": 2, "assists": 0}, {"name": "Женя Клюшин", "goals": 2, "assists": 0}, {"name": "Паша Вирник", "goals": 1, "assists": 2}, {"name": "Игорь Еремеев", "goals": 1, "assists": 0}], [{"name": "Саша Скрывля", "goals": 1, "assists": 0}, {"name": "Андрей Берликов", "goals": 1, "assists": 0}, {"name": "Паша Орлов", "goals": 2, "assists": 2}, {"name": "Илья Сыван", "goals": 1, "assists": 0}, {"name": "Паша Тренин", "goals": 2, "assists": 3}, {"name": "Миша Фирсков", "goals": 2, "assists": 1}]], "matches": []}, {"id": 1700000000002, "date": "18.03", "legacy": true, "teams": [{"name": "Команда 1", "colorIdx": 0, "players": ["Дима Корольков", "Паша Пахомов", "Женя Клюшин", "Паша Вирник", "Дима Князев", "Игорь Еремеев"]}, {"name": "Команда 2", "colorIdx": 1, "players": ["Саша Скрывля", "Андрей Берликов", "Паша Орлов", "Паша Тренин", "Олег Иохин", "Илья Сыван"]}], "legacyStats": [[{"name": "Дима Корольков", "goals": 0, "assists": 0}, {"name": "Паша Пахомов", "goals": 0, "assists": 0}, {"name": "Женя Клюшин", "goals": 2, "assists": 1}, {"name": "Паша Вирник", "goals": 2, "assists": 1}, {"name": "Дима Князев", "goals": 3, "assists": 2}, {"name": "Игорь Еремеев", "goals": 0, "assists": 1}], [{"name": "Саша Скрывля", "goals": 1, "assists": 2}, {"name": "Андрей Берликов", "goals": 0, "assists": 1}, {"name": "Паша Орлов", "goals": 1, "assists": 0}, {"name": "Паша Тренин", "goals": 2, "assists": 2}, {"name": "Олег Иохин", "goals": 3, "assists": 1}, {"name": "Илья Сыван", "goals": 2, "assists": 3}]], "matches": []}, {"id": 1700000000003, "date": "25.03", "legacy": true, "teams": [{"name": "Команда 1", "colorIdx": 0, "players": ["Дима Корольков", "Олег Сильченко", "Женя Клюшин", "Паша Вирник", "Паша Тренин", "Паша Орлов"]}, {"name": "Команда 2", "colorIdx": 1, "players": ["Сурен", "Саша Скрывля", "Игорь Еремеев", "Илья Сыван", "Андрей Берликов", "Андрей"]}], "legacyStats": [[{"name": "Дима Корольков", "goals": 0, "assists": 0}, {"name": "Олег Сильченко", "goals": 0, "assists": 2}, {"name": "Женя Клюшин", "goals": 2, "assists": 2}, {"name": "Паша Вирник", "goals": 1, "assists": 0}, {"name": "Паша Тренин", "goals": 1, "assists": 1}, {"name": "Паша Орлов", "goals": 2, "assists": 0}], [{"name": "Сурен", "goals": 0, "assists": 0}, {"name": "Саша Скрывля", "goals": 1, "assists": 3}, {"name": "Игорь Еремеев", "goals": 1, "assists": 0}, {"name": "Илья Сыван", "goals": 1, "assists": 1}, {"name": "Андрей Берликов", "goals": 2, "assists": 0}, {"name": "Андрей", "goals": 1, "assists": 0}]], "matches": []}, {"id": 1700000000004, "date": "01.04", "legacy": true, "teams": [{"name": "Команда 1", "colorIdx": 0, "players": ["Дима Князев", "Андрей Берликов", "Женя Клюшин", "Игорь Еремеев", "Паша Тренин"]}, {"name": "Команда 2", "colorIdx": 1, "players": ["Дима Корольков", "Саша Скрывля", "Кирилл Лизунов", "Паша Пахомов", "Миша Комков", "Паша Вирник"]}, {"name": "Команда 3", "colorIdx": 2, "players": ["Алексей Милованович", "Олег Иохин", "Миша Фирсков", "Паша Орлов", "Саша Ли", "Илья Сыван"]}], "legacyStats": [[{"name": "Дима Князев", "goals": 6, "assists": 2}, {"name": "Андрей Берликов", "goals": 1, "assists": 0}, {"name": "Женя Клюшин", "goals": 1, "assists": 1}, {"name": "Игорь Еремеев", "goals": 1, "assists": 0}, {"name": "Паша Тренин", "goals": 2, "assists": 1}], [{"name": "Дима Корольков", "goals": 0, "assists": 1}, {"name": "Саша Скрывля", "goals": 2, "assists": 1}, {"name": "Кирилл Лизунов", "goals": 1, "assists": 2}, {"name": "Паша Пахомов", "goals": 0, "assists": 0}, {"name": "Миша Комков", "goals": 1, "assists": 2}, {"name": "Паша Вирник", "goals": 3, "assists": 0}], [{"name": "Алексей Милованович", "goals": 0, "assists": 0}, {"name": "Олег Иохин", "goals": 1, "assists": 1}, {"name": "Миша Фирсков", "goals": 0, "assists": 0}, {"name": "Паша Орлов", "goals": 1, "assists": 0}, {"name": "Саша Ли", "goals": 2, "assists": 1}, {"name": "Илья Сыван", "goals": 0, "assists": 0}]], "matches": []}, {"id": 1700000000005, "date": "08.04", "legacy": true, "teams": [{"name": "Команда 1", "colorIdx": 0, "players": ["Саша Скрывля", "Паша Орлов", "Миша Фирсков", "Паша Тренин", "Паша Вирник", "Миша Комков", "Антон Борисов"]}, {"name": "Команда 2", "colorIdx": 1, "players": ["Алексей Милованович", "Олег Сильченко", "Паша Пахомов", "Илья Сыван", "Дима Князев", "Алексей Зайцев", "Кирилл Лизунов"]}], "legacyStats": [[{"name": "Саша Скрывля", "goals": 0, "assists": 0}, {"name": "Паша Орлов", "goals": 0, "assists": 0}, {"name": "Миша Фирсков", "goals": 0, "assists": 0}, {"name": "Паша Тренин", "goals": 3, "assists": 3}, {"name": "Паша Вирник", "goals": 1, "assists": 2}, {"name": "Миша Комков", "goals": 2, "assists": 1}, {"name": "Антон Борисов", "goals": 2, "assists": 1}], [{"name": "Алексей Милованович", "goals": 0, "assists": 0}, {"name": "Олег Сильченко", "goals": 0, "assists": 1}, {"name": "Паша Пахомов", "goals": 0, "assists": 0}, {"name": "Илья Сыван", "goals": 1, "assists": 1}, {"name": "Дима Князев", "goals": 2, "assists": 1}, {"name": "Алексей Зайцев", "goals": 0, "assists": 1}, {"name": "Кирилл Лизунов", "goals": 7, "assists": 2}]], "matches": []}, {"id": 1700000000006, "date": "15.04", "legacy": true, "teams": [{"name": "Команда 1", "colorIdx": 0, "players": ["Дима Корольков", "Олег Сильченко", "Миша Комков", "Антон Борисов", "Паша Вирник"]}, {"name": "Команда 2", "colorIdx": 1, "players": ["Алексей Милованович", "Андрей Берликов", "Алексей Зайцев", "Паша Тренин", "Олег Иохин"]}, {"name": "Команда 3", "colorIdx": 2, "players": ["Женя Клюшин", "Паша Орлов", "Миша Фирсков", "Илья Сыван", "Дима Князев"]}], "legacyStats": [[{"name": "Дима Корольков", "goals": 0, "assists": 0}, {"name": "Олег Сильченко", "goals": 0, "assists": 0}, {"name": "Миша Комков", "goals": 1, "assists": 0}, {"name": "Антон Борисов", "goals": 0, "assists": 0}, {"name": "Паша Вирник", "goals": 0, "assists": 0}], [{"name": "Алексей Милованович", "goals": 0, "assists": 0}, {"name": "Андрей Берликов", "goals": 1, "assists": 0}, {"name": "Алексей Зайцев", "goals": 1, "assists": 1}, {"name": "Паша Тренин", "goals": 2, "assists": 4}, {"name": "Олег Иохин", "goals": 3, "assists": 1}], [{"name": "Женя Клюшин", "goals": 1, "assists": 0}, {"name": "Паша Орлов", "goals": 0, "assists": 0}, {"name": "Миша Фирсков", "goals": 0, "assists": 1}, {"name": "Илья Сыван", "goals": 0, "assists": 0}, {"name": "Дима Князев", "goals": 1, "assists": 1}]], "matches": []}, {"id": 1700000000007, "date": "22.04", "legacy": true, "teams": [{"name": "Команда 1", "colorIdx": 0, "players": ["Алексей Милованович", "Паша Орлов", "Олег Сильченко", "Миша Комков", "Паша Тренин", "Илья Сыван"]}, {"name": "Команда 2", "colorIdx": 1, "players": ["Алексей Зайцев", "Женя Клюшин", "Миша Фирсков", "Антон Борисов", "Олег Иохин", "Дима Князев"]}], "legacyStats": [[{"name": "Алексей Милованович", "goals": 0, "assists": 0}, {"name": "Паша Орлов", "goals": 1, "assists": 0}, {"name": "Олег Сильченко", "goals": 1, "assists": 1}, {"name": "Миша Комков", "goals": 0, "assists": 0}, {"name": "Паша Тренин", "goals": 1, "assists": 1}, {"name": "Илья Сыван", "goals": 0, "assists": 0}], [{"name": "Алексей Зайцев", "goals": 0, "assists": 0}, {"name": "Женя Клюшин", "goals": 0, "assists": 1}, {"name": "Миша Фирсков", "goals": 1, "assists": 1}, {"name": "Антон Борисов", "goals": 2, "assists": 1}, {"name": "Олег Иохин", "goals": 1, "assists": 2}, {"name": "Дима Князев", "goals": 3, "assists": 1}]], "matches": []}, {"id": 1700000000008, "date": "06.05", "legacy": true, "teams": [{"name": "Команда 1", "colorIdx": 0, "players": ["Дима Корольков", "Олег Сильченко", "Илья Сыван", "Саша Ли", "Дима Князев"]}, {"name": "Команда 2", "colorIdx": 1, "players": ["Саша Скрывля", "Андрей Берликов", "Петр Звенигородский", "Паша Вирник", "Паша Тренин"]}], "legacyStats": [[{"name": "Дима Корольков", "goals": 0, "assists": 0}, {"name": "Олег Сильченко", "goals": 0, "assists": 0}, {"name": "Илья Сыван", "goals": 2, "assists": 1}, {"name": "Саша Ли", "goals": 1, "assists": 5}, {"name": "Дима Князев", "goals": 9, "assists": 3}], [{"name": "Саша Скрывля", "goals": 1, "assists": 2}, {"name": "Андрей Берликов", "goals": 0, "assists": 1}, {"name": "Петр Звенигородский", "goals": 0, "assists": 0}, {"name": "Паша Вирник", "goals": 1, "assists": 2}, {"name": "Паша Тренин", "goals": 3, "assists": 1}]], "matches": []}, {"id": 1700000000009, "date": "13.05", "legacy": true, "teams": [{"name": "Команда 1", "colorIdx": 0, "players": ["Дима Корольков", "Олег Сильченко", "Паша Тренин", "Илья Сыван", "Кирилл Лизунов"]}, {"name": "Команда 2", "colorIdx": 1, "players": ["Саша Скрывля", "Женя Клюшин", "Саша Ли", "Максим Савиола", "Паша Вирник"]}, {"name": "Команда 3", "colorIdx": 2, "players": ["Алексей Милованович", "Алексей Зайцев", "Миша от Клюшина", "Дима Войнаревич", "Витинька"]}], "legacyStats": [[{"name": "Дима Корольков", "goals": 0, "assists": 0}, {"name": "Олег Сильченко", "goals": 0, "assists": 3}, {"name": "Паша Тренин", "goals": 4, "assists": 1}, {"name": "Илья Сыван", "goals": 1, "assists": 1}, {"name": "Кирилл Лизунов", "goals": 2, "assists": 1}], [{"name": "Саша Скрывля", "goals": 0, "assists": 1}, {"name": "Женя Клюшин", "goals": 0, "assists": 2}, {"name": "Саша Ли", "goals": 3, "assists": 1}, {"name": "Максим Савиола", "goals": 2, "assists": 1}, {"name": "Паша Вирник", "goals": 3, "assists": 1}], [{"name": "Алексей Милованович", "goals": 1, "assists": 1}, {"name": "Алексей Зайцев", "goals": 0, "assists": 1}, {"name": "Миша от Клюшина", "goals": 2, "assists": 1}, {"name": "Дима Войнаревич", "goals": 1, "assists": 0}, {"name": "Витинька", "goals": 1, "assists": 2}]], "matches": []}, {"id": 1700000000010, "date": "20.05", "legacy": true, "teams": [{"name": "Команда 1", "colorIdx": 0, "players": ["Дима Корольков", "Олег Сильченко", "Петр Звенигородский", "Илья Сыван", "Паша Вирник"]}, {"name": "Команда 2", "colorIdx": 1, "players": ["Саша Скрывля", "Алексей Зайцев", "Миша Фирсков", "Саша Ли", "Ваня от Клюшина"]}, {"name": "Команда 3", "colorIdx": 2, "players": ["Женя Клюшин", "Андрей Берликов", "Максим (от Игоря)", "Игорь Еремеев", "Паша Тренин"]}], "legacyStats": [[{"name": "Дима Корольков", "goals": 0, "assists": 0}, {"name": "Олег Сильченко", "goals": 1, "assists": 2}, {"name": "Петр Звенигородский", "goals": 0, "assists": 0}, {"name": "Илья Сыван", "goals": 4, "assists": 0}, {"name": "Паша Вирник", "goals": 1, "assists": 3}], [{"name": "Саша Скрывля", "goals": 0, "assists": 2}, {"name": "Алексей Зайцев", "goals": 1, "assists": 2}, {"name": "Миша Фирсков", "goals": 2, "assists": 0}, {"name": "Саша Ли", "goals": 3, "assists": 2}, {"name": "Ваня от Клюшина", "goals": 1, "assists": 0}], [{"name": "Женя Клюшин", "goals": 0, "assists": 0}, {"name": "Андрей Берликов", "goals": 0, "assists": 0}, {"name": "Максим (от Игоря)", "goals": 0, "assists": 1}, {"name": "Игорь Еремеев", "goals": 2, "assists": 0}, {"name": "Паша Тренин", "goals": 3, "assists": 2}]], "matches": []}, {"id": 1700000000011, "date": "27.05", "legacy": true, "teams": [{"name": "Команда 1", "colorIdx": 0, "players": ["Дима Корольков", "Паша Орлов", "Олег Сильченко", "Паша Тренин", "Паша Вирник"]}, {"name": "Команда 2", "colorIdx": 1, "players": ["Алексей Милованович", "Женя Клюшин", "Петр Звенигородский", "Саша Ли", "Олег Иохин"]}, {"name": "Команда 3", "colorIdx": 2, "players": ["Саша Скрывля", "Алексей Зайцев", "Миша Фирсков", "Илья Сыван", "Дима Князев"]}], "legacyStats": [[{"name": "Дима Корольков", "goals": 0, "assists": 0}, {"name": "Паша Орлов", "goals": 0, "assists": 0}, {"name": "Олег Сильченко", "goals": 0, "assists": 0}, {"name": "Паша Тренин", "goals": 4, "assists": 0}, {"name": "Паша Вирник", "goals": 0, "assists": 1}], [{"name": "Алексей Милованович", "goals": 0, "assists": 1}, {"name": "Женя Клюшин", "goals": 1, "assists": 0}, {"name": "Петр Звенигородский", "goals": 2, "assists": 0}, {"name": "Саша Ли", "goals": 2, "assists": 1}, {"name": "Олег Иохин", "goals": 2, "assists": 3}], [{"name": "Саша Скрывля", "goals": 0, "assists": 0}, {"name": "Алексей Зайцев", "goals": 0, "assists": 0}, {"name": "Миша Фирсков", "goals": 1, "assists": 0}, {"name": "Илья Сыван", "goals": 1, "assists": 0}, {"name": "Дима Князев", "goals": 2, "assists": 2}]], "matches": []}, {"id": 1700000000012, "date": "03.06", "legacy": true, "teams": [{"name": "Команда 1", "colorIdx": 0, "players": ["Дима Корольков", "Женя Клюшин", "Алексей Зайцев", "Игорь Еремеев", "Паша Вирник"]}, {"name": "Команда 2", "colorIdx": 1, "players": ["Алексей Милованович", "Паша Орлов", "Миша Фирсков", "Дима Войнаревич", "Илья Сыван"]}, {"name": "Команда 3", "colorIdx": 2, "players": ["Саша Скрывля", "Антон Борисов", "Петр Звенигородский", "Андрей Берликов", "Дима Князев"]}], "legacyStats": [[{"name": "Дима Корольков", "goals": 0, "assists": 0}, {"name": "Женя Клюшин", "goals": 0, "assists": 0}, {"name": "Алексей Зайцев", "goals": 0, "assists": 0}, {"name": "Игорь Еремеев", "goals": 0, "assists": 0}, {"name": "Паша Вирник", "goals": 0, "assists": 0}], [{"name": "Алексей Милованович", "goals": 0, "assists": 0}, {"name": "Паша Орлов", "goals": 0, "assists": 0}, {"name": "Миша Фирсков", "goals": 0, "assists": 0}, {"name": "Дима Войнаревич", "goals": 0, "assists": 0}, {"name": "Илья Сыван", "goals": 0, "assists": 0}], [{"name": "Саша Скрывля", "goals": 0, "assists": 0}, {"name": "Антон Борисов", "goals": 0, "assists": 0}, {"name": "Петр Звенигородский", "goals": 0, "assists": 0}, {"name": "Андрей Берликов", "goals": 0, "assists": 0}, {"name": "Дима Князев", "goals": 0, "assists": 0}]], "matches": []}, {"id": 1700000000013, "date": "10.06", "legacy": true, "teams": [{"name": "Команда 1", "colorIdx": 0, "players": ["Олег Сильченко", "Саша Скрывля", "Кирилл Лизунов", "Петр Звенигородский", "Максим Савиола"]}, {"name": "Команда 2", "colorIdx": 1, "players": ["Илья Сыван", "Женя Клюшин", "Дима Князев", "Саша Ли", "Алексей Зайцев"]}, {"name": "Команда 3", "colorIdx": 2, "players": ["Паша Орлов", "Олег Иохин", "Ваня от Клюшина", "Дима Корольков", "Паша Вирник"]}], "legacyStats": [[{"name": "Олег Сильченко", "goals": 2, "assists": 0}, {"name": "Саша Скрывля", "goals": 3, "assists": 1}, {"name": "Кирилл Лизунов", "goals": 0, "assists": 0}, {"name": "Петр Звенигородский", "goals": 1, "assists": 0}, {"name": "Максим Савиола", "goals": 1, "assists": 3}], [{"name": "Илья Сыван", "goals": 0, "assists": 1}, {"name": "Женя Клюшин", "goals": 4, "assists": 0}, {"name": "Дима Князев", "goals": 1, "assists": 2}, {"name": "Саша Ли", "goals": 0, "assists": 1}, {"name": "Алексей Зайцев", "goals": 0, "assists": 0}], [{"name": "Паша Орлов", "goals": 0, "assists": 2}, {"name": "Олег Иохин", "goals": 4, "assists": 0}, {"name": "Ваня от Клюшина", "goals": 0, "assists": 1}, {"name": "Дима Корольков", "goals": 0, "assists": 0}, {"name": "Паша Вирник", "goals": 3, "assists": 1}]], "matches": []}, {"id": 1700000000014, "date": "17.06", "legacy": true, "teams": [{"name": "Команда 1", "colorIdx": 0, "players": ["Алексей Милованович", "Паша Орлов", "Андрей Берликов", "Ваня от Клюшина", "Паша Вирник"]}, {"name": "Команда 2", "colorIdx": 1, "players": ["Саша Скрывля", "Женя Клюшин", "Петр Звенигородский", "Антон Борисов", "Саша Ли"]}, {"name": "Команда 3", "colorIdx": 2, "players": ["Дима Корольков", "Олег Сильченко", "Паша Пахомов", "Олег Иохин", "Дима Князев"]}], "legacyStats": [[{"name": "Алексей Милованович", "goals": 0, "assists": 0}, {"name": "Паша Орлов", "goals": 1, "assists": 0}, {"name": "Андрей Берликов", "goals": 0, "assists": 0}, {"name": "Ваня от Клюшина", "goals": 2, "assists": 1}, {"name": "Паша Вирник", "goals": 2, "assists": 0}], [{"name": "Саша Скрывля", "goals": 3, "assists": 0}, {"name": "Женя Клюшин", "goals": 1, "assists": 0}, {"name": "Петр Звенигородский", "goals": 0, "assists": 0}, {"name": "Антон Борисов", "goals": 1, "assists": 0}, {"name": "Саша Ли", "goals": 0, "assists": 1}], [{"name": "Дима Корольков", "goals": 0, "assists": 1}, {"name": "Олег Сильченко", "goals": 2, "assists": 0}, {"name": "Паша Пахомов", "goals": 0, "assists": 0}, {"name": "Олег Иохин", "goals": 4, "assists": 3}, {"name": "Дима Князев", "goals": 3, "assists": 1}]], "matches": []}, {"id": 1700000000015, "date": "24.06", "legacy": true, "teams": [{"name": "Команда 1", "colorIdx": 0, "players": ["Дима Корольков", "Алексей Зайцев", "Максим Савиола", "Олег Иохин", "Саша Ли"]}, {"name": "Команда 2", "colorIdx": 1, "players": ["Ваня от Клюшина", "Паша Пахомов", "Паша Орлов", "Илья Сыван", "Паша Вирник"]}, {"name": "Команда 3", "colorIdx": 2, "players": ["Петр Звенигородский", "Георгий Вагин", "Олег Сильченко", "Дима Фродин", "Дима Князев"]}], "legacyStats": [[{"name": "Дима Корольков", "goals": 0, "assists": 0}, {"name": "Алексей Зайцев", "goals": 3, "assists": 1}, {"name": "Максим Савиола", "goals": 1, "assists": 0}, {"name": "Олег Иохин", "goals": 3, "assists": 2}, {"name": "Саша Ли", "goals": 0, "assists": 0}], [{"name": "Ваня от Клюшина", "goals": 4, "assists": 1}, {"name": "Паша Пахомов", "goals": 3, "assists": 1}, {"name": "Паша Орлов", "goals": 2, "assists": 1}, {"name": "Илья Сыван", "goals": 0, "assists": 1}, {"name": "Паша Вирник", "goals": 4, "assists": 8}], [{"name": "Петр Звенигородский", "goals": 0, "assists": 0}, {"name": "Георгий Вагин", "goals": 0, "assists": 1}, {"name": "Олег Сильченко", "goals": 0, "assists": 1}, {"name": "Дима Фродин", "goals": 0, "assists": 1}, {"name": "Дима Князев", "goals": 6, "assists": 0}]], "matches": []}, {"id": 1700000000100, "date": "2026-07-22", "legacy": false, "teams": [{"name": "Команда 1", "colorIdx": 0, "players": ["Ваня от Клюшина", "Паша Вирник", "Алексей Зайцев", "Дима Корольков", "Андрей Берликов"]}, {"name": "Команда 2", "colorIdx": 1, "players": ["Женя Клюшин", "Олег Иохин", "Паша Орлов", "Дима от Андрея", "Миша Фирсков"]}, {"name": "Команда 3", "colorIdx": 2, "players": ["Илья Сыван", "Влад от Игоря", "Саша Ли", "Миша Комков", "Петр Звенигородский"]}], "matches": [{"id": 1753142400001, "teamAIdx": 1, "teamBIdx": 2, "scoreA": 1, "scoreB": 0, "scorersA": [{"name": "Женя Клюшин", "goals": 1}], "scorersB": []}, {"id": 1753142400002, "teamAIdx": 1, "teamBIdx": 0, "scoreA": 0, "scoreB": 0, "scorersA": [], "scorersB": []}, {"id": 1753142400003, "teamAIdx": 0, "teamBIdx": 2, "scoreA": 0, "scoreB": 1, "scorersA": [], "scorersB": [{"name": "Илья Сыван", "goals": 1}]}, {"id": 1753142400004, "teamAIdx": 2, "teamBIdx": 1, "scoreA": 1, "scoreB": 2, "scorersA": [{"name": "Саша Ли", "goals": 1}], "scorersB": [{"name": "Олег Иохин", "goals": 2}]}, {"id": 1753142400005, "teamAIdx": 0, "teamBIdx": 1, "scoreA": 0, "scoreB": 2, "scorersA": [], "scorersB": [{"name": "Олег Иохин", "goals": 1}, {"name": "Миша Фирсков", "goals": 1}]}, {"id": 1753142400006, "teamAIdx": 2, "teamBIdx": 1, "scoreA": 1, "scoreB": 0, "scorersA": [{"name": "Петр Звенигородский", "goals": 1}], "scorersB": []}, {"id": 1753142400007, "teamAIdx": 0, "teamBIdx": 2, "scoreA": 0, "scoreB": 1, "scorersA": [], "scorersB": [{"name": "Петр Звенигородский", "goals": 1}]}, {"id": 1753142400008, "teamAIdx": 2, "teamBIdx": 1, "scoreA": 0, "scoreB": 1, "scorersA": [], "scorersB": [{"name": "Женя Клюшин", "goals": 1}]}, {"id": 1753142400009, "teamAIdx": 0, "teamBIdx": 1, "scoreA": 1, "scoreB": 0, "scorersA": [{"name": "Алексей Зайцев", "goals": 1}], "scorersB": []}, {"id": 1753142400010, "teamAIdx": 0, "teamBIdx": 2, "scoreA": 0, "scoreB": 2, "scorersA": [], "scorersB": [{"name": "Влад от Игоря", "goals": 1}, {"name": "Миша Комков", "goals": 1}]}, {"id": 1753142400011, "teamAIdx": 2, "teamBIdx": 1, "scoreA": 0, "scoreB": 1, "scorersA": [], "scorersB": [{"name": "Олег Иохин", "goals": 1}]}, {"id": 1753142400012, "teamAIdx": 0, "teamBIdx": 1, "scoreA": 1, "scoreB": 0, "scorersA": [{"name": "Алексей Зайцев", "goals": 1}], "scorersB": []}, {"id": 1753142400013, "teamAIdx": 0, "teamBIdx": 2, "scoreA": 0, "scoreB": 1, "scorersA": [], "scorersB": [{"name": "Миша Комков", "goals": 1}]}]}, {"id": 1700000000101, "date": "2026-07-29", "legacy": false, "teams": [{"name": "Команда 1", "colorIdx": 0, "players": ["Алексей Милованович", "Илья Сыван", "Дима Войнаревич", "Алексей Зайцев", "Миша Фирсков"]}, {"name": "Команда 2", "colorIdx": 1, "players": ["Ваня от Клюшина", "Олег Иохин", "Паша Вирник", "Дима Корольков", "Андрей Берликов"]}, {"name": "Команда 3", "colorIdx": 2, "players": ["Женя Клюшин", "Паша Орлов", "Влад от Игоря", "Саша Ли", "Георгий Вагин"]}], "matches": [], "manualStandings": [{"gp": 7, "w": 1, "d": 1, "l": 5, "gf": 3, "ga": 6, "pts": 4}, {"gp": 9, "w": 4, "d": 3, "l": 2, "gf": 6, "ga": 5, "pts": 15}, {"gp": 10, "w": 4, "d": 4, "l": 2, "gf": 6, "ga": 4, "pts": 16}], "personalStats": [{"name": "Ваня от Клюшина", "teamIdx": 1, "goals": 4, "assists": 0}, {"name": "Олег Иохин", "teamIdx": 1, "goals": 2, "assists": 2}, {"name": "Миша Фирсков", "teamIdx": 0, "goals": 1, "assists": 2}, {"name": "Алексей Зайцев", "teamIdx": 0, "goals": 2, "assists": 0}, {"name": "Влад от Игоря", "teamIdx": 2, "goals": 2, "assists": 0}, {"name": "Паша Вирник", "teamIdx": 1, "goals": 0, "assists": 2}, {"name": "Андрей Берликов", "teamIdx": 1, "goals": 0, "assists": 2}, {"name": "Женя Клюшин", "teamIdx": 2, "goals": 0, "assists": 2}, {"name": "Георгий Вагин", "teamIdx": 2, "goals": 1, "assists": 0}, {"name": "Илья Сыван", "teamIdx": 0, "goals": 0, "assists": 1}, {"name": "Паша Орлов", "teamIdx": 2, "goals": 0, "assists": 1}]}, {"id": 1700000000102, "date": "2026-08-12", "legacy": false, "teams": [{"name": "Команда 1", "colorIdx": 0, "players": ["Ваня от Клюшина", "Паша Орлов", "Иван от Ивана", "Георгий Вагин", "Паша Пахомов"]}, {"name": "Команда 2", "colorIdx": 1, "players": ["Алексей Милованович", "Миша от Клюшина", "Петр Звенигородский", "Максим Савиола", "Миша Фирсков"]}, {"name": "Команда 3", "colorIdx": 2, "players": ["Женя Клюшин", "Паша Вирник", "Олег Сильченко", "Алексей Зайцев", "Дима Корольков"]}], "matches": [{"id": 1755043200001, "teamAIdx": 0, "teamBIdx": 2, "scoreA": 1, "scoreB": 1, "wonByPenalties": 0, "scorersA": [{"name": "Иван от Ивана", "goals": 1, "assist": null}], "scorersB": [{"name": "Женя Клюшин", "goals": 1, "assist": null}]}, {"id": 1755043200012, "teamAIdx": 0, "teamBIdx": 1, "scoreA": 0, "scoreB": 0, "scorersA": [], "scorersB": []}, {"id": 1755043200002, "teamAIdx": 1, "teamBIdx": 2, "scoreA": 0, "scoreB": 0, "scorersA": [], "scorersB": []}, {"id": 1755043200003, "teamAIdx": 0, "teamBIdx": 2, "scoreA": 2, "scoreB": 0, "scorersA": [{"name": "Паша Орлов", "goals": 1, "assist": "Ваня от Клюшина"}, {"name": "Георгий Вагин", "goals": 1, "assist": "Ваня от Клюшина"}], "scorersB": []}, {"id": 1755043200013, "teamAIdx": 0, "teamBIdx": 1, "scoreA": 0, "scoreB": 0, "scorersA": [], "scorersB": []}, {"id": 1755043200004, "teamAIdx": 2, "teamBIdx": 1, "scoreA": 1, "scoreB": 0, "scorersA": [{"name": "Алексей Зайцев", "goals": 1, "assist": "Женя Клюшин"}], "scorersB": []}, {"id": 1755043200005, "teamAIdx": 2, "teamBIdx": 0, "scoreA": 1, "scoreB": 0, "scorersA": [{"name": "Паша Вирник", "goals": 1, "assist": null}], "scorersB": []}, {"id": 1755043200006, "teamAIdx": 1, "teamBIdx": 2, "scoreA": 2, "scoreB": 0, "scorersA": [{"name": "Миша Фирсков", "goals": 1, "assist": "Миша от Клюшина"}, {"name": "Миша от Клюшина", "goals": 1, "assist": null}], "scorersB": []}, {"id": 1755043200007, "teamAIdx": 0, "teamBIdx": 1, "scoreA": 1, "scoreB": 1, "scorersA": [{"name": "Иван от Ивана", "goals": 1, "assist": null}], "scorersB": [{"name": "Миша Фирсков", "goals": 1, "assist": null}]}, {"id": 1755043200008, "teamAIdx": 0, "teamBIdx": 1, "scoreA": 2, "scoreB": 0, "scorersA": [{"name": "Ваня от Клюшина", "goals": 1, "assist": null}, {"name": "Иван от Ивана", "goals": 1, "assist": "Паша Пахомов"}], "scorersB": []}, {"id": 1755043200009, "teamAIdx": 1, "teamBIdx": 2, "scoreA": 1, "scoreB": 0, "scorersA": [{"name": "Алексей Милованович", "goals": 1, "assist": null}], "scorersB": []}, {"id": 1755043200010, "teamAIdx": 1, "teamBIdx": 2, "scoreA": 1, "scoreB": 0, "scorersA": [{"name": "Максим Савиола", "goals": 1, "assist": "Миша от Клюшина"}], "scorersB": []}]}];
 
         window.roster = [];
@@ -662,14 +672,18 @@
 
             // Игроки, сохранённые ещё до появления навыков GK/DEF/ATT/END
             // (старая схема хранила только общий рейтинг), донабираем эти поля
-            // значением рейтинга — как и везде в приложении, когда навык не задан.
+            // значением рейтинга (округлённым до целого — навыки теперь всегда
+            // целые числа). Рейтинг больше не хранится отдельно: он всегда
+            // считается как среднее этих четырёх навыков.
             window.roster.forEach(p => {
+                const fallback = typeof p.rating === 'number' ? Math.round(p.rating) : 5;
                 ['gk', 'def', 'att', 'end'].forEach(field => {
-                    if (typeof p[field] !== 'number' || isNaN(p[field])) {
-                        p[field] = typeof p.rating === 'number' ? p.rating : 5;
+                    if (typeof p[field] !== 'number' || isNaN(p[field]) || !Number.isInteger(p[field])) {
+                        p[field] = typeof p[field] === 'number' && !isNaN(p[field]) ? Math.round(p[field]) : fallback;
                         migrated = true;
                     }
                 });
+                if ('rating' in p) { delete p.rating; migrated = true; }
             });
 
             if (migrated) window.saveData();
@@ -681,6 +695,21 @@
 
         window.findPlayer = function(name) {
             return window.roster.find(p => p.name.toLowerCase() === name.toLowerCase().trim());
+        };
+
+        // Рейтинг больше не хранится отдельным полем — это всегда среднее
+        // четырёх целочисленных навыков, пересчитывается на лету.
+        window.playerRating = function(p) {
+            return (p.gk + p.def + p.att + p.end) / 4;
+        };
+
+        window.updateRatingPreview = function() {
+            const clampInt = v => Math.min(10, Math.max(0, Math.round(v) || 0));
+            const gk = clampInt(parseFloat(document.getElementById('rosterGk').value));
+            const def = clampInt(parseFloat(document.getElementById('rosterDef').value));
+            const att = clampInt(parseFloat(document.getElementById('rosterAtt').value));
+            const end = clampInt(parseFloat(document.getElementById('rosterEnd').value));
+            document.getElementById('rosterRatingPreview').textContent = ((gk + def + att + end) / 4).toFixed(2);
         };
 
         window.switchTab = function(tabName) {
@@ -716,12 +745,11 @@
                 return;
             }
 
-            const clamp = v => Math.min(10, Math.max(0, isNaN(v) ? 5 : v));
-            let rating = clamp(parseFloat(document.getElementById('rosterRating').value));
-            let gk = clamp(parseFloat(document.getElementById('rosterGk').value));
-            let def = clamp(parseFloat(document.getElementById('rosterDef').value));
-            let att = clamp(parseFloat(document.getElementById('rosterAtt').value));
-            let end = clamp(parseFloat(document.getElementById('rosterEnd').value));
+            const clampInt = v => Math.min(10, Math.max(0, Math.round(isNaN(v) ? 5 : v)));
+            let gk = clampInt(parseFloat(document.getElementById('rosterGk').value));
+            let def = clampInt(parseFloat(document.getElementById('rosterDef').value));
+            let att = clampInt(parseFloat(document.getElementById('rosterAtt').value));
+            let end = clampInt(parseFloat(document.getElementById('rosterEnd').value));
 
             if (pos2 && pos2 === pos1) {
                 msgDiv.innerHTML = '<div class="message error-message">❌ Вторичная позиция должна отличаться от основной</div>';
@@ -746,19 +774,19 @@
                 msgDiv.innerHTML = `<div class="message success-message">✓ Игрок «${name}» добавлен</div>`;
             }
 
-            window.roster.push({ name, pos1, pos2: pos2 || null, rating, gk, def, att, end });
+            window.roster.push({ name, pos1, pos2: pos2 || null, gk, def, att, end });
             window.saveData();
 
             window.editingPlayerName = null;
             document.getElementById('rosterSubmitBtn').textContent = '➕ Добавить';
             nameInput.value = '';
-            document.getElementById('rosterRating').value = '5.0';
             document.getElementById('rosterGk').value = '5';
             document.getElementById('rosterDef').value = '5';
             document.getElementById('rosterAtt').value = '5';
             document.getElementById('rosterEnd').value = '5';
             document.getElementById('rosterPos1').value = 'MID';
             document.getElementById('rosterPos2').value = '';
+            window.updateRatingPreview();
 
             window.renderRoster();
         };
@@ -769,7 +797,6 @@
             document.getElementById('rosterName').value = p.name;
             document.getElementById('rosterPos1').value = p.pos1;
             document.getElementById('rosterPos2').value = p.pos2 || '';
-            document.getElementById('rosterRating').value = p.rating;
             document.getElementById('rosterGk').value = p.gk;
             document.getElementById('rosterDef').value = p.def;
             document.getElementById('rosterAtt').value = p.att;
@@ -777,6 +804,7 @@
             window.editingPlayerName = p.name;
             document.getElementById('rosterSubmitBtn').textContent = '💾 Сохранить';
             document.getElementById('rosterName').focus();
+            window.updateRatingPreview();
         };
 
         window.deletePlayer = function(name) {
@@ -816,27 +844,26 @@
 
             const lines = text.split('\n').map(l => l.trim()).filter(l => l);
             let added = 0, updated = 0, skipped = 0;
-            const clamp = v => Math.min(10, Math.max(0, v));
+            const clampInt = v => Math.min(10, Math.max(0, Math.round(v)));
 
             lines.forEach(line => {
                 const parts = line.split(';').map(p => p.trim());
                 const name = parts[0];
                 const pos1 = (parts[1] || '').toUpperCase();
                 const pos2 = (parts[2] || '').toUpperCase();
-                const rating = parseFloat(parts[3]);
+                const gkRaw = parseFloat(parts[3]);
+                const defRaw = parseFloat(parts[4]);
+                const attRaw = parseFloat(parts[5]);
+                const endRaw = parseFloat(parts[6]);
 
-                if (!name || !POSITIONS.includes(pos1) || isNaN(rating)) {
+                if (!name || !POSITIONS.includes(pos1) || [gkRaw, defRaw, attRaw, endRaw].some(isNaN)) {
                     skipped++;
                     return;
                 }
-                const r = clamp(rating);
-                const gk = parts[4] !== undefined && parts[4] !== '' && !isNaN(parseFloat(parts[4])) ? clamp(parseFloat(parts[4])) : r;
-                const def = parts[5] !== undefined && parts[5] !== '' && !isNaN(parseFloat(parts[5])) ? clamp(parseFloat(parts[5])) : r;
-                const att = parts[6] !== undefined && parts[6] !== '' && !isNaN(parseFloat(parts[6])) ? clamp(parseFloat(parts[6])) : r;
-                const end = parts[7] !== undefined && parts[7] !== '' && !isNaN(parseFloat(parts[7])) ? clamp(parseFloat(parts[7])) : r;
+                const gk = clampInt(gkRaw), def = clampInt(defRaw), att = clampInt(attRaw), end = clampInt(endRaw);
 
                 const existingIdx = window.roster.findIndex(p => p.name.toLowerCase() === name.toLowerCase());
-                const entry = { name, pos1, pos2: (POSITIONS.includes(pos2) && pos2 !== pos1) ? pos2 : null, rating: r, gk, def, att, end };
+                const entry = { name, pos1, pos2: (POSITIONS.includes(pos2) && pos2 !== pos1) ? pos2 : null, gk, def, att, end };
 
                 if (existingIdx !== -1) {
                     window.roster[existingIdx] = entry;
@@ -854,7 +881,7 @@
         };
 
         window.bulkExport = function() {
-            const lines = window.roster.map(p => `${p.name}; ${p.pos1}; ${p.pos2 || ''}; ${p.rating}; ${p.gk}; ${p.def}; ${p.att}; ${p.end}`);
+            const lines = window.roster.map(p => `${p.name}; ${p.pos1}; ${p.pos2 || ''}; ${p.gk}; ${p.def}; ${p.att}; ${p.end}`);
             document.getElementById('bulkText').value = lines.join('\n');
             document.getElementById('bulkImportSection').style.display = 'block';
         };
@@ -868,7 +895,7 @@
                 return;
             }
 
-            const sorted = [...window.roster].sort((a, b) => b.rating - a.rating);
+            const sorted = [...window.roster].sort((a, b) => window.playerRating(b) - window.playerRating(a));
 
             container.innerHTML = `
                 <div style="overflow-x: auto;">
@@ -892,7 +919,7 @@
                                     <td class="text-left" style="font-weight: 600;">${p.name}</td>
                                     <td><span class="pos-badge" style="background:#f0f0f0;">${p.pos1}</span></td>
                                     <td>${p.pos2 ? `<span class="pos-badge secondary-badge">${p.pos2}</span>` : '—'}</td>
-                                    <td style="font-weight: 700; color: #1e3c72;">${p.rating.toFixed(2)}</td>
+                                    <td style="font-weight: 700; color: #1e3c72;">${window.playerRating(p).toFixed(2)}</td>
                                     <td>${p.gk}</td>
                                     <td>${p.def}</td>
                                     <td>${p.att}</td>
@@ -937,7 +964,7 @@
             const players = playerNames.map(name => {
                 const p = window.findPlayer(name);
                 if (!p) return null;
-                return { ...p, totalRating: p.rating };
+                return { ...p, totalRating: window.playerRating(p) };
             }).filter(p => p !== null);
 
             const notFound = playerNames.filter(name => !window.findPlayer(name));
