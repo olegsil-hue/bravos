@@ -1,7 +1,7 @@
 'use strict';
 
 require('dotenv').config();
-const { Telegraf, Markup } = require('telegraf');
+const { Telegraf, Markup, Input } = require('telegraf');
 const cron = require('node-cron');
 
 const db = require('./db');
@@ -9,6 +9,7 @@ const { computePlayerGameStats, computeStandings, computeDayPersonalStats } = re
 const { playerRating } = require('./core/rating');
 const { smartDivide, optimizeTeamBalance } = require('./core/division');
 const gameRecording = require('./gameRecording');
+const { renderDayReportImages } = require('./imageReport');
 
 const TOKEN = process.env.TELEGRAM_BOT_TOKEN;
 const GROUP_CHAT_ID = process.env.TELEGRAM_GROUP_CHAT_ID ? Number(process.env.TELEGRAM_GROUP_CHAT_ID) : null;
@@ -596,16 +597,33 @@ bot.command('end_day', async ctx => {
   const personal = computeDayPersonalStats(finished);
   const teamName = idx => (finished.teams[idx] ? finished.teams[idx].name : `Команда ${idx + 1}`);
 
-  const lines = [`🏆 Итоги ${finished.date}\n`, 'Итоговая таблица:'];
+  const textLines = [`🏆 Итоги ${finished.date}\n`, 'Итоговая таблица:'];
   standings.forEach((s, i) => {
     const medal = ['🥇', '🥈', '🥉'][i] || '';
-    lines.push(`${medal} ${teamName(s.idx)} — И:${s.gp} В:${s.w} Н:${s.d} П:${s.l} Голы:${s.gf}:${s.ga} Очки:${s.pts}`);
+    textLines.push(`${medal} ${teamName(s.idx)} — И:${s.gp} В:${s.w} Н:${s.d} П:${s.l} Голы:${s.gf}:${s.ga} Очки:${s.pts}`);
   });
-  lines.push('\nЛичная статистика:');
-  personal.forEach(p => lines.push(`${p.name} (${teamName(p.teamIdx)}) — ⚽${p.goals} 🎯${p.assists}`));
+  textLines.push('\nЛичная статистика:');
+  personal.forEach(p => textLines.push(`${p.name} (${teamName(p.teamIdx)}) — ⚽${p.goals} 🎯${p.assists}`));
+  const text = textLines.join('\n');
 
-  await ctx.reply(lines.join('\n'));
-  if (GROUP_CHAT_ID) await bot.telegram.sendMessage(GROUP_CHAT_ID, lines.join('\n'));
+  // Картинки (таблица, журнал игр, личная статистика) — отрисовка через
+  // sharp, без браузера (см. imageReport.js). Если по какой-то причине
+  // отрисовка упадёт (например, на сервере нет нужного шрифта) — не
+  // проваливаем /end_day целиком, а откатываемся на текстовый вариант.
+  try {
+    const { standingsImg, matchLogImg, personalImg } = await renderDayReportImages(finished, standings, personal);
+    const media = [
+      { type: 'photo', media: Input.fromBuffer(standingsImg, 'standings.png'), caption: `🏆 Итоги ${finished.date}` },
+      { type: 'photo', media: Input.fromBuffer(matchLogImg, 'matchlog.png') },
+      { type: 'photo', media: Input.fromBuffer(personalImg, 'personal.png') },
+    ];
+    await ctx.replyWithMediaGroup(media);
+    if (GROUP_CHAT_ID) await bot.telegram.sendMediaGroup(GROUP_CHAT_ID, media);
+  } catch (err) {
+    console.error('❌ Не удалось сгенерировать картинки итогов, отправляю текстом:', err);
+    await ctx.reply(text);
+    if (GROUP_CHAT_ID) await bot.telegram.sendMessage(GROUP_CHAT_ID, text);
+  }
 });
 
 // Список игровых дней с id — чтобы найти тестовый день (заведённый через
@@ -693,4 +711,4 @@ process.once('SIGTERM', () => bot.stop('SIGTERM'));
 // Диагностическая метка деплоя — если в логах есть эта строка, значит
 // Railway реально забрал самый свежий коммит из ветки, а не закешировал
 // старый билд.
-console.log('BUILD MARKER: choose-starting-pair (' + new Date().toISOString() + ')');
+console.log('BUILD MARKER: end-day-images (' + new Date().toISOString() + ')');
