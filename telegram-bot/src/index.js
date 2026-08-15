@@ -526,15 +526,55 @@ bot.action(/^regenerate_(\d+)$/, async ctx => {
 // Запись игр (Игра 1, Игра 2, ... — проигравшая команда уступает место)
 // ===================================================================
 
+// Все пары команд (для выбора стартовой пары при 3+ командах).
+function teamPairs(teams) {
+  const pairs = [];
+  for (let i = 0; i < teams.length; i++) {
+    for (let j = i + 1; j < teams.length; j++) pairs.push([i, j]);
+  }
+  return pairs;
+}
+
 async function openGameRecording(chatId) {
   const day = db.getLatestGameDayByStatus('approved');
   if (!day) {
     if (ADMIN_USER_ID) await bot.telegram.sendMessage(ADMIN_USER_ID, '❌ Нет утверждённого состава на сегодня — нечего открывать.');
     return;
   }
-  await bot.telegram.sendMessage(chatId, `🟢 Запись игр открыта на ${day.date}!`);
-  await gameRecording.startGameDay(bot, day, chatId);
+
+  if (day.teams.length < 3) {
+    // Только одна возможная пара — выбирать нечего, стартуем сразу.
+    await bot.telegram.sendMessage(chatId, `🟢 Запись игр открыта на ${day.date}!`);
+    await gameRecording.startGameDay(bot, day, chatId);
+    return;
+  }
+
+  // 3+ команды — спрашиваем админа, кто играет первым; остальные команды
+  // (кроме выбранной пары) в Игре 1 отдыхают (при 3 командах — одна).
+  const pairs = teamPairs(day.teams);
+  await bot.telegram.sendMessage(
+    chatId,
+    `🟢 Запись игр на ${day.date} — кто играет первым?`,
+    Markup.inlineKeyboard(
+      pairs.map(([a, b]) => [Markup.button.callback(
+        `${day.teams[a].name} — ${day.teams[b].name}`,
+        `startpair_${day.id}_${a}_${b}`
+      )])
+    )
+  );
 }
+
+bot.action(/^startpair_(\d+)_(\d+)_(\d+)$/, async ctx => {
+  if (!isAdmin(ctx)) return ctx.answerCbQuery('Только для администратора');
+  const dayId = Number(ctx.match[1]);
+  const aIdx = Number(ctx.match[2]);
+  const bIdx = Number(ctx.match[3]);
+  const day = db.getGameDayById(dayId);
+  if (!day) return ctx.answerCbQuery('Игровой день не найден (уже начат или удалён?)');
+  await ctx.editMessageReplyMarkup(undefined);
+  await ctx.answerCbQuery('Начинаем!');
+  await gameRecording.startGameDay(bot, day, ctx.chat.id, aIdx, bIdx);
+});
 
 // Ручной запуск для проверки — не ждать среды 18:00.
 bot.command('start_game', async ctx => {
@@ -653,4 +693,4 @@ process.once('SIGTERM', () => bot.stop('SIGTERM'));
 // Диагностическая метка деплоя — если в логах есть эта строка, значит
 // Railway реально забрал самый свежий коммит из ветки, а не закешировал
 // старый билд.
-console.log('BUILD MARKER: days-and-delete-day (' + new Date().toISOString() + ')');
+console.log('BUILD MARKER: choose-starting-pair (' + new Date().toISOString() + ')');

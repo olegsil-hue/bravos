@@ -79,15 +79,22 @@ async function renderMatch(bot, match, day) {
   db.updateLiveMatch(match.id, { chatId: sent.chat.id, messageId: sent.message_id });
 }
 
-/** Стартует Игру 1 для игрового дня (2 или 3 команды). */
-async function startGameDay(bot, gameDay, chatId) {
+/**
+ * Стартует Игру 1 для игрового дня (2 или 3 команды). aIdx/bIdx — индексы
+ * стартовой пары (по умолчанию 0/1 = первые две команды); для 3 команд
+ * оставшаяся команда садится отдыхать. Выбор пары — см. openGameRecording
+ * в index.js (спрашивает админа кнопками перед вызовом этой функции).
+ */
+async function startGameDay(bot, gameDay, chatId, aIdx = 0, bIdx = 1) {
   db.setGameDayStatus(gameDay.id, 'in_progress');
-  const sittingOutIdx = gameDay.teams.length >= 3 ? 2 : null;
+  const sittingOutIdx = gameDay.teams.length >= 3
+    ? gameDay.teams.findIndex((_, i) => i !== aIdx && i !== bIdx)
+    : null;
   let match = db.createLiveMatch({
     gameDayId: gameDay.id,
     matchNumber: 1,
-    teamAIdx: 0,
-    teamBIdx: 1,
+    teamAIdx: aIdx,
+    teamBIdx: bIdx,
     sittingOutIdx,
   });
   match = db.updateLiveMatch(match.id, { chatId });
