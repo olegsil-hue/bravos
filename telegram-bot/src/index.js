@@ -104,6 +104,18 @@ function extractPastedField(parts, fixedIdx) {
   return parts[parts.length - 1]; // короче ожидаемого — берём как есть
 }
 
+// Достаёт числовой id-аргумент команды вида «/команда 20». Терпим к тому,
+// что кто-то введёт id в угловых скобках или с «#» — так выглядит
+// плейсхолдер в подсказках («/delete_day <id>»), и люди иногда копируют
+// его буквально вместе со скобками вместо самого числа.
+function parseIdArg(ctx, commandName) {
+  const raw = ctx.message.text.replace(new RegExp(`^/${commandName}(@\\w+)?`), '').trim();
+  const cleaned = raw.replace(/[<>#]/g, '').trim();
+  if (!cleaned) return null;
+  const id = parseInt(cleaned, 10);
+  return Number.isFinite(id) && id > 0 ? id : null;
+}
+
 bot.command('set_usernames', async ctx => {
   if (!isAdmin(ctx)) return ctx.reply('Эта команда только для администратора.');
   const body = ctx.message.text.replace(/^\/set_usernames(@\w+)?/, '').trim();
@@ -220,7 +232,7 @@ bot.command('polls', ctx => {
   const lines = polls.slice(0, 10).map(p =>
     `#${p.id} — ${p.event_date} — ${p.status === 'open' ? '🟢 открыт' : '⚪ закрыт'} — «${OPT_IN}»: ${p.in_count}, всего: ${p.total_count}`
   );
-  return ctx.reply('Опросы (последние 10):\n' + lines.join('\n') + '\n\nЧтобы поделить по конкретному: /divide_now <id>.');
+  return ctx.reply('Опросы (последние 10):\n' + lines.join('\n') + '\n\nЧтобы поделить по конкретному — id числом после команды, например: /divide_now 3');
 });
 
 // Тестовая команда: дозаполнить текущий опрос случайными игроками из
@@ -260,15 +272,14 @@ bot.command('simulate_votes', async ctx => {
 // не дожидаясь среды 12:00 по расписанию. Удобно для проверки после деплоя.
 bot.command('divide_now', async ctx => {
   if (!isAdmin(ctx)) return ctx.reply('Эта команда только для администратора.');
-  const arg = ctx.message.text.replace(/^\/divide_now(@\w+)?/, '').trim();
-  const explicitId = arg ? parseInt(arg, 10) : null;
+  const explicitId = parseIdArg(ctx, 'divide_now');
 
   const poll = explicitId ? db.getPollById(explicitId) : db.getLatestOpenPoll();
   if (!poll) {
     return ctx.reply(
       explicitId
         ? `Опрос #${explicitId} не найден.`
-        : 'Открытых опросов нет — сначала /poll. Если опрос был, но уже закрыт не тем /divide_now — проверьте /polls и укажите id: /divide_now <id>.'
+        : 'Открытых опросов нет — сначала /poll. Если опрос был, но уже закрыт не тем /divide_now — проверьте /polls и укажите id числом, например: /divide_now 3.'
     );
   }
   db.closePoll(poll.id);
@@ -635,7 +646,7 @@ bot.command('days', ctx => {
   if (!days.length) return ctx.reply('Игровых дней пока нет.');
   const statusIcon = { pending_approval: '🕐 ждёт апрува', approved: '✅ утверждён', in_progress: '🟢 идёт запись', completed: '⚪ завершён' };
   const lines = days.slice(0, 15).map(d => `#${d.id} — ${d.date} — ${statusIcon[d.status] || d.status}`);
-  return ctx.reply('Игровые дни (последние 15):\n' + lines.join('\n') + '\n\nУдалить: /delete_day <id>.');
+  return ctx.reply('Игровые дни (последние 15):\n' + lines.join('\n') + '\n\nУдалить — id числом после команды, например: /delete_day 20');
 });
 
 // Полностью убирает игровой день (и его live_matches) из базы — для
@@ -644,9 +655,8 @@ bot.command('days', ctx => {
 // id сначала смотрите в /days.
 bot.command('delete_day', ctx => {
   if (!isAdmin(ctx)) return ctx.reply('Эта команда только для администратора.');
-  const arg = ctx.message.text.replace(/^\/delete_day(@\w+)?/, '').trim();
-  const id = parseInt(arg, 10);
-  if (!id) return ctx.reply('Использование: /delete_day <id> — id смотрите в /days.');
+  const id = parseIdArg(ctx, 'delete_day');
+  if (!id) return ctx.reply('Использование: /delete_day 20 — просто число id (без скобок и «#»), смотрите в /days.');
   const ok = db.deleteGameDay(id);
   return ctx.reply(ok ? `✅ Игровой день #${id} удалён.` : `❌ День #${id} не найден.`);
 });
@@ -711,4 +721,4 @@ process.once('SIGTERM', () => bot.stop('SIGTERM'));
 // Диагностическая метка деплоя — если в логах есть эта строка, значит
 // Railway реально забрал самый свежий коммит из ветки, а не закешировал
 // старый билд.
-console.log('BUILD MARKER: end-day-images (' + new Date().toISOString() + ')');
+console.log('BUILD MARKER: tolerant-id-args (' + new Date().toISOString() + ')');
