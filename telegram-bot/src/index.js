@@ -568,6 +568,31 @@ bot.command('end_day', async ctx => {
   if (GROUP_CHAT_ID) await bot.telegram.sendMessage(GROUP_CHAT_ID, lines.join('\n'));
 });
 
+// Список игровых дней с id — чтобы найти тестовый день (заведённый через
+// /manual_divide + /start_game) и убрать его через /delete_day, не трогая
+// реальную историю.
+bot.command('days', ctx => {
+  if (!isAdmin(ctx)) return ctx.reply('Эта команда только для администратора.');
+  const days = db.getAllGameDaysBrief();
+  if (!days.length) return ctx.reply('Игровых дней пока нет.');
+  const statusIcon = { pending_approval: '🕐 ждёт апрува', approved: '✅ утверждён', in_progress: '🟢 идёт запись', completed: '⚪ завершён' };
+  const lines = days.slice(0, 15).map(d => `#${d.id} — ${d.date} — ${statusIcon[d.status] || d.status}`);
+  return ctx.reply('Игровые дни (последние 15):\n' + lines.join('\n') + '\n\nУдалить: /delete_day <id>.');
+});
+
+// Полностью убирает игровой день (и его live_matches) из базы — для
+// тестовых прогонов /manual_divide → /start_game → запись голов, чтобы
+// не засорять реальную статистику. Необратимо, подтверждения не просит —
+// id сначала смотрите в /days.
+bot.command('delete_day', ctx => {
+  if (!isAdmin(ctx)) return ctx.reply('Эта команда только для администратора.');
+  const arg = ctx.message.text.replace(/^\/delete_day(@\w+)?/, '').trim();
+  const id = parseInt(arg, 10);
+  if (!id) return ctx.reply('Использование: /delete_day <id> — id смотрите в /days.');
+  const ok = db.deleteGameDay(id);
+  return ctx.reply(ok ? `✅ Игровой день #${id} удалён.` : `❌ День #${id} не найден.`);
+});
+
 // --- Кнопки записи гола/паса ---
 
 bot.action(/^goal_(\d+)_(\d+)$/, ctx => gameRecording.handleGoalButton(bot, ctx, Number(ctx.match[1]), Number(ctx.match[2])));
@@ -628,4 +653,4 @@ process.once('SIGTERM', () => bot.stop('SIGTERM'));
 // Диагностическая метка деплоя — если в логах есть эта строка, значит
 // Railway реально забрал самый свежий коммит из ветки, а не закешировал
 // старый билд.
-console.log('BUILD MARKER: fixed-paste-field-index (' + new Date().toISOString() + ')');
+console.log('BUILD MARKER: days-and-delete-day (' + new Date().toISOString() + ')');

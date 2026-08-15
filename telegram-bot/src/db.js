@@ -227,6 +227,24 @@ function setGameDayStatus(id, status) {
   db.prepare('UPDATE game_days SET status = ? WHERE id = ?').run(status, id);
 }
 
+// Краткий список игровых дней (для /days — чтобы найти id тестового дня и
+// удалить его через /delete_day, не трогая остальную историю).
+function getAllGameDaysBrief() {
+  return db.prepare('SELECT id, date, status, legacy FROM game_days ORDER BY id DESC').all();
+}
+
+// Полностью удаляет игровой день и все его live_matches (тестовые дни,
+// заведённые через /manual_divide + /start_game, не должны засорять
+// реальную историю/статистику).
+function deleteGameDay(id) {
+  const tx = db.transaction(() => {
+    db.prepare('DELETE FROM live_matches WHERE game_day_id = ?').run(id);
+    const info = db.prepare('DELETE FROM game_days WHERE id = ?').run(id);
+    return info.changes;
+  });
+  return tx() > 0;
+}
+
 function appendMatchToGameDay(gameDayId, match) {
   const day = getGameDayById(gameDayId);
   const matches = [...day.matches, match];
@@ -388,6 +406,8 @@ module.exports = {
   getGameDayById,
   getLatestGameDayByStatus,
   setGameDayStatus,
+  getAllGameDaysBrief,
+  deleteGameDay,
   appendMatchToGameDay,
   linkTelegramUser,
   getPlayerNameByTelegramId,
