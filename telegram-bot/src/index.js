@@ -577,7 +577,6 @@ async function openGameRecording(chatId) {
 }
 
 bot.action(/^startpair_(\d+)_(\d+)_(\d+)$/, async ctx => {
-  if (!isAdmin(ctx)) return ctx.answerCbQuery('Только для администратора');
   const dayId = Number(ctx.match[1]);
   const aIdx = Number(ctx.match[2]);
   const bIdx = Number(ctx.match[3]);
@@ -589,13 +588,16 @@ bot.action(/^startpair_(\d+)_(\d+)_(\d+)$/, async ctx => {
 });
 
 // Ручной запуск для проверки — не ждать среды 18:00.
+// Открыть запись игр может любой участник группы, не только админ —
+// на игре не всегда есть время ждать конкретного человека, чтобы начать
+// фиксировать голы.
 bot.command('start_game', async ctx => {
-  if (!isAdmin(ctx)) return ctx.reply('Эта команда только для администратора.');
   await openGameRecording(ctx.chat.id);
 });
 
+// Завершить день и прислать итоги тоже может любой участник — та же
+// логика, что и у /start_game.
 bot.command('end_day', async ctx => {
-  if (!isAdmin(ctx)) return ctx.reply('Эта команда только для администратора.');
   const day = db.getLatestGameDayByStatus('in_progress') || db.getLatestGameDayByStatus('approved');
   if (!day) return ctx.reply('Нет открытого игрового дня.');
 
@@ -629,11 +631,15 @@ bot.command('end_day', async ctx => {
       { type: 'photo', media: Input.fromBuffer(personalImg, 'personal.png') },
     ];
     await ctx.replyWithMediaGroup(media);
-    if (GROUP_CHAT_ID) await bot.telegram.sendMediaGroup(GROUP_CHAT_ID, media);
+    // Раньше только админ мог вызвать /end_day, обычно из личных сообщений
+    // — тогда отдельная отправка в группу была нужна всегда. Теперь любой
+    // участник может вызвать её прямо в группе, и тогда GROUP_CHAT_ID —
+    // это тот же чат: слать второй раз не нужно, будет дублирующий альбом.
+    if (GROUP_CHAT_ID && ctx.chat.id !== GROUP_CHAT_ID) await bot.telegram.sendMediaGroup(GROUP_CHAT_ID, media);
   } catch (err) {
     console.error('❌ Не удалось сгенерировать картинки итогов, отправляю текстом:', err);
     await ctx.reply(text);
-    if (GROUP_CHAT_ID) await bot.telegram.sendMessage(GROUP_CHAT_ID, text);
+    if (GROUP_CHAT_ID && ctx.chat.id !== GROUP_CHAT_ID) await bot.telegram.sendMessage(GROUP_CHAT_ID, text);
   }
 });
 
@@ -721,4 +727,4 @@ process.once('SIGTERM', () => bot.stop('SIGTERM'));
 // Диагностическая метка деплоя — если в логах есть эта строка, значит
 // Railway реально забрал самый свежий коммит из ветки, а не закешировал
 // старый билд.
-console.log('BUILD MARKER: tolerant-id-args (' + new Date().toISOString() + ')');
+console.log('BUILD MARKER: open-game-recording (' + new Date().toISOString() + ')');
