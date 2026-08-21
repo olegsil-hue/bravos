@@ -156,6 +156,31 @@ function applyKnownTelegramNames() {
 
 applyKnownTelegramNames();
 
+// Ручные правки факторов GK/DEF/ATT/END из веб-версии, не попавшие в базу
+// бота автоматически (см. known-roster-factor-overrides.json) — это
+// отдельная база, синхронизации между ними нет. В отличие от
+// applyKnownTelegramNames, здесь ВСЕГДА перезаписываем значения (не
+// только если пусто) — это подправленные актуальные цифры, а не
+// запасной вариант на случай пустого поля. Применяется на каждом
+// запуске, так что переживёт передеплой.
+function applyKnownRosterFactorOverrides() {
+  let overrides;
+  try {
+    overrides = require('./known-roster-factor-overrides.json').overrides;
+  } catch (e) {
+    return; // файла нет — не критично, просто пропускаем
+  }
+  const setFactors = db.prepare('UPDATE players SET gk = ?, def = ?, att = ?, end_ = ? WHERE name = ?');
+  let applied = 0;
+  overrides.forEach(o => {
+    const r = setFactors.run(o.gk, o.def, o.att, o.end, o.name);
+    if (r.changes) applied++;
+  });
+  if (applied) console.log(`Применены правки факторов из веб-версии: ${applied} игроков.`);
+}
+
+applyKnownRosterFactorOverrides();
+
 // --- Игроки ---
 
 function getRoster() {
