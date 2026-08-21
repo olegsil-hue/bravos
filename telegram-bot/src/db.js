@@ -130,6 +130,32 @@ function seedIfEmpty() {
 
 seedIfEmpty();
 
+// Известные сопоставления username/displayName -> игрок, разобранные
+// вручную из скриншотов реальных опросов (см. known-telegram-names.json).
+// Применяется на КАЖДОМ запуске (идемпотентно), а не только на пустой
+// базе — чтобы не зависеть от того, помнит ли кто-то запустить
+// /set_usernames или /set_display_names руками. Никогда не перезаписывает
+// уже заданное значение — правки через сами эти команды (или через
+// веб-приложение + бот) остаются приоритетнее этого списка.
+function applyKnownTelegramNames() {
+  let known;
+  try {
+    known = require('./known-telegram-names.json').mappings;
+  } catch (e) {
+    return; // файла нет — не критично, просто пропускаем
+  }
+  const setUsername = db.prepare("UPDATE players SET telegram_username = ? WHERE name = ? AND (telegram_username IS NULL OR telegram_username = '')");
+  const setDisplayName = db.prepare("UPDATE players SET telegram_display_name = ? WHERE name = ? AND (telegram_display_name IS NULL OR telegram_display_name = '')");
+  let applied = 0;
+  known.forEach(m => {
+    if (m.username) { const r = setUsername.run(normalizeTelegramUsername(m.username), m.name); if (r.changes) applied++; }
+    if (m.displayName) { const r = setDisplayName.run(m.displayName, m.name); if (r.changes) applied++; }
+  });
+  if (applied) console.log(`Применены известные Telegram-сопоставления: ${applied} полей.`);
+}
+
+applyKnownTelegramNames();
+
 // --- Игроки ---
 
 function getRoster() {

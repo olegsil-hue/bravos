@@ -1,0 +1,21 @@
+{
+  "_comment": "Сопоставления Telegram username/displayName -> игрок, разобранные вручную из скриншотов реальных опросов (Poll Results) в чате с пользователем. username почти всегда неизвестен (в скриншотах Telegram показывает отображаемое имя, не @handle) — заполнен только displayName. Применяется автоматически при каждом запуске бота (applyKnownTelegramNames в db.js), но НЕ перезаписывает значение, если оно уже задано в базе (например, через /set_usernames или /set_display_names) — админ всегда важнее этого списка.",
+  "mappings": [
+    { "name": "Витинька", "displayName": "Victor" },
+    { "name": "Влад от Игоря", "displayName": "Владислав" },
+    { "name": "Антон Борисов", "displayName": "Антон" },
+    { "name": "Ваня от Клюшина", "displayName": "Иван" },
+    { "name": "Миша от Клюшина", "displayName": "Misha Misha" },
+    { "name": "Женя Клюшин", "displayName": "Evgeny Klyushin" },
+    { "name": "Паша Орлов", "displayName": "Pavel" },
+    { "name": "Илья Сыван", "displayName": "Ilia" },
+    { "name": "Андрей Берликов", "displayName": "Andrey" },
+    { "name": "Георгий Вагин", "displayName": "George" },
+    { "name": "Дима Корольков", "displayName": "Dmitry Korolkov_ERS" },
+    { "name": "Алексей Милованович", "displayName": "Mazepino" },
+    { "name": "Миша Фирсков", "displayName": "Firmaxonic" },
+    { "name": "Алексей Зайцев", "displayName": "Alexey Zaycev Eldorado" },
+    { "name": "Паша Вирник", "displayName": "Pavel Virnik" },
+    { "name": "Саша Ли", "displayName": "Alexander Lee Huawei" }
+  ]
+}
