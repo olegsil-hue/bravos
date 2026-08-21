@@ -187,10 +187,10 @@ bot.command('set_display_names', async ctx => {
 });
 
 // Ручной запуск опроса — «после моего апрува» = сама команда и есть апрув.
-bot.command('poll', async ctx => {
-  if (!isAdmin(ctx)) return ctx.reply('Эта команда только для администратора.');
-  if (!GROUP_CHAT_ID) return ctx.reply('❌ Не задан TELEGRAM_GROUP_CHAT_ID в настройках бота.');
-
+// Общая логика для команды /poll и автозапуска по расписанию (см.
+// планировщик ниже) — не дублируем отправку опроса в двух местах.
+async function launchPoll() {
+  if (!GROUP_CHAT_ID) return null;
   const eventDate = nextWednesday();
   const message = await bot.telegram.sendPoll(
     GROUP_CHAT_ID,
@@ -198,14 +198,19 @@ bot.command('poll', async ctx => {
     [OPT_IN, OPT_OUT],
     { is_anonymous: false, allows_multiple_answers: false }
   );
-
   db.createPoll({
     telegramPollId: message.poll.id,
     chatId: message.chat.id,
     messageId: message.message_id,
     eventDate,
   });
+  return eventDate;
+}
 
+bot.command('poll', async ctx => {
+  if (!isAdmin(ctx)) return ctx.reply('Эта команда только для администратора.');
+  if (!GROUP_CHAT_ID) return ctx.reply('❌ Не задан TELEGRAM_GROUP_CHAT_ID в настройках бота.');
+  const eventDate = await launchPoll();
   return ctx.reply(`✅ Опрос отправлен в группу на игру ${eventDate}.`);
 });
 
@@ -679,9 +684,19 @@ bot.action(/^endmatch_(\d+)$/, ctx => gameRecording.handleEndMatch(bot, ctx, Num
 bot.action(/^pk_(\d+)_(none|\d+)$/, ctx => gameRecording.handlePenaltyWinner(bot, ctx, Number(ctx.match[1]), ctx.match[2]));
 
 // ===================================================================
-// Планировщик: среда 12:00 — закрыть опрос и отправить деление на апрув.
-// Среда 18:00 — открыть запись игр в группе.
+// Планировщик: понедельник 09:00 — сам публикует опрос (не дожидаясь
+// /poll от админа). Среда 12:00 — закрыть опрос и отправить деление на
+// апрув. Среда 18:00 — открыть запись игр в группе.
 // ===================================================================
+
+// День/час подобраны на глаз (даёт ~2.5 суток на голосование до среды);
+// поменять — просто исправить cron-выражение здесь.
+cron.schedule('0 9 * * 1', async () => {
+  if (!GROUP_CHAT_ID) return;
+  if (db.getLatestOpenPoll()) return; // уже есть открытый (например, админ запустил вручную) — не дублируем
+  const eventDate = await launchPoll();
+  console.log(`Опрос на ${eventDate} опубликован автоматически (понедельник 09:00).`);
+}, { timezone: TIMEZONE });
 
 cron.schedule('0 12 * * 3', async () => {
   const poll = db.getLatestOpenPoll();
@@ -732,4 +747,4 @@ process.once('SIGTERM', () => bot.stop('SIGTERM'));
 // Диагностическая метка деплоя — если в логах есть эта строка, значит
 // Railway реально забрал самый свежий коммит из ветки, а не закешировал
 // старый билд.
-console.log('BUILD MARKER: shared-database-web-app (' + new Date().toISOString() + ')');
+console.log('BUILD MARKER: auto-poll-launch (' + new Date().toISOString() + ')');
