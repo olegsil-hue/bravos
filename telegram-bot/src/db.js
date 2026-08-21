@@ -99,6 +99,70 @@ if (!playerColumns.includes('telegram_display_name')) {
   db.exec('ALTER TABLE players ADD COLUMN telegram_display_name TEXT');
 }
 
+db.exec(`
+CREATE TABLE IF NOT EXISTS schema_meta (
+  key TEXT PRIMARY KEY,
+  value TEXT
+);
+`);
+
+// Одноразовая миграция на общую базу бот+веб-приложение: раньше это были
+// два независимых хранилища (SQLite бота и localStorage браузера), и все
+// правки (рейтинги, игровые дни, Telegram-имена) приходилось переносить
+// вручную. full-state-migration.json — это снимок актуальных данных из
+// football-heroes-live.html на момент перехода. Выполняется РОВНО ОДИН
+// РАЗ за всё время жизни базы (флаг в schema_meta) — переживает любой
+// передеплой, но не перезатирает то, что уже накопилось в базе бота
+// после перехода (голоса, живые матчи и т.д.) при повторных запусках.
+function runFullStateMigrationIfNeeded() {
+  const flag = db.prepare("SELECT value FROM schema_meta WHERE key = 'full_state_migrated'").get();
+  if (flag) return;
+
+  let snapshot;
+  try {
+    snapshot = require('./full-state-migration.json');
+  } catch (e) {
+    db.prepare("INSERT INTO schema_meta (key, value) VALUES ('full_state_migrated', datetime('now'))").run();
+    return; // файла нет — считаем миграцию неприменимой, отмечаем как выполненную
+  }
+
+  const tx = db.transaction(() => {
+    db.prepare('DELETE FROM live_matches').run();
+    db.prepare('DELETE FROM game_days').run();
+    db.prepare('DELETE FROM players').run();
+
+    const insertPlayer = db.prepare(`
+      INSERT INTO players (name, pos1, pos2, gk, def, att, end_, telegram_username, telegram_display_name)
+      VALUES (@name, @pos1, @pos2, @gk, @def, @att, @end, @telegramUsername, @telegramDisplayName)
+    `);
+    snapshot.roster.forEach(p => insertPlayer.run({
+      ...p,
+      pos2: p.pos2 || null,
+      telegramUsername: p.telegramUsername || null,
+      telegramDisplayName: p.telegramDisplayName || null,
+    }));
+
+    const insertDay = db.prepare(`
+      INSERT INTO game_days (id, date, legacy, teams_json, matches_json, legacy_stats_json, manual_standings_json, personal_stats_json, status)
+      VALUES (@id, @date, @legacy, @teams_json, @matches_json, @legacy_stats_json, @manual_standings_json, @personal_stats_json, 'completed')
+    `);
+    snapshot.gameDays.forEach(d => insertDay.run({
+      id: d.id,
+      date: d.date,
+      legacy: d.legacy ? 1 : 0,
+      teams_json: JSON.stringify(d.teams || []),
+      matches_json: JSON.stringify(d.matches || []),
+      legacy_stats_json: d.legacyStats ? JSON.stringify(d.legacyStats) : null,
+      manual_standings_json: d.manualStandings ? JSON.stringify(d.manualStandings) : null,
+      personal_stats_json: d.personalStats ? JSON.stringify(d.personalStats) : null,
+    }));
+
+    db.prepare("INSERT INTO schema_meta (key, value) VALUES ('full_state_migrated', datetime('now'))").run();
+  });
+  tx();
+  console.log(`Единая база: перенесено ${snapshot.roster.length} игроков, ${snapshot.gameDays.length} игровых дней из веб-приложения.`);
+}
+
 function seedIfEmpty() {
   const count = db.prepare('SELECT COUNT(*) AS c FROM players').get().c;
   if (count > 0) return;
@@ -128,6 +192,7 @@ function seedIfEmpty() {
   console.log(`Сид загружен: ${seed.roster.length} игроков, ${seed.gameDays.length} игровых дней.`);
 }
 
+runFullStateMigrationIfNeeded();
 seedIfEmpty();
 
 // Известные сопоставления username/displayName -> игрок, разобранные
@@ -246,6 +311,69 @@ function getAllGameDaysForStats() {
     manualStandings: r.manual_standings_json ? JSON.parse(r.manual_standings_json) : undefined,
     personalStats: r.personal_stats_json ? JSON.parse(r.personal_stats_json) : undefined,
   }));
+}
+
+// Сохраняет полное состояние (ростер + игровые дни) из веб-приложения —
+// вызывается на каждое window.saveData() оттуда (см. server.js,
+// POST /api/state). Игроков полностью заменяет по имени (первичный
+// ключ) — веб-приложение теперь несёт те же поля, что и таблица
+// (включая telegram_username/telegram_display_name), так что ничего
+// боту-специфичного не теряется. Игровые дни — по id: для уже
+// существующих строк НЕ трогает status и связанные live_matches (это
+// управляется ботом при живой записи игр, веб-приложение об этом не
+// знает); для новых — status='completed' (обычный случай для дней,
+// заведённых со стороны веб-версии, где составы и результаты уже
+// известны целиком). Дни, пропавшие из присланного списка (удалены в
+// вебе), удаляются и у бота вместе с их live_matches.
+function replaceState(roster, gameDays) {
+  const tx = db.transaction(() => {
+    const incomingNames = new Set(roster.map(p => p.name));
+    db.prepare('SELECT name FROM players').all().forEach(r => {
+      if (!incomingNames.has(r.name)) db.prepare('DELETE FROM players WHERE name = ?').run(r.name);
+    });
+    const upsertPlayer = db.prepare(`
+      INSERT INTO players (name, pos1, pos2, gk, def, att, end_, telegram_username, telegram_display_name)
+      VALUES (@name, @pos1, @pos2, @gk, @def, @att, @end, @telegramUsername, @telegramDisplayName)
+      ON CONFLICT(name) DO UPDATE SET
+        pos1 = excluded.pos1, pos2 = excluded.pos2, gk = excluded.gk, def = excluded.def,
+        att = excluded.att, end_ = excluded.end_,
+        telegram_username = excluded.telegram_username, telegram_display_name = excluded.telegram_display_name
+    `);
+    roster.forEach(p => upsertPlayer.run({
+      ...p,
+      pos2: p.pos2 || null,
+      telegramUsername: normalizeTelegramUsername(p.telegramUsername) || null,
+      telegramDisplayName: p.telegramDisplayName || null,
+    }));
+
+    const incomingIds = new Set(gameDays.map(d => d.id));
+    db.prepare('SELECT id FROM game_days').all().forEach(r => {
+      if (!incomingIds.has(r.id)) {
+        db.prepare('DELETE FROM live_matches WHERE game_day_id = ?').run(r.id);
+        db.prepare('DELETE FROM game_days WHERE id = ?').run(r.id);
+      }
+    });
+    const upsertDay = db.prepare(`
+      INSERT INTO game_days (id, date, legacy, teams_json, matches_json, legacy_stats_json, manual_standings_json, personal_stats_json, status)
+      VALUES (@id, @date, @legacy, @teams_json, @matches_json, @legacy_stats_json, @manual_standings_json, @personal_stats_json, 'completed')
+      ON CONFLICT(id) DO UPDATE SET
+        date = excluded.date, legacy = excluded.legacy, teams_json = excluded.teams_json,
+        matches_json = excluded.matches_json, legacy_stats_json = excluded.legacy_stats_json,
+        manual_standings_json = excluded.manual_standings_json, personal_stats_json = excluded.personal_stats_json
+        -- status намеренно не трогаем при конфликте — управляется ботом
+    `);
+    gameDays.forEach(d => upsertDay.run({
+      id: d.id,
+      date: d.date,
+      legacy: d.legacy ? 1 : 0,
+      teams_json: JSON.stringify(d.teams || []),
+      matches_json: JSON.stringify(d.matches || []),
+      legacy_stats_json: d.legacyStats ? JSON.stringify(d.legacyStats) : null,
+      manual_standings_json: d.manualStandings ? JSON.stringify(d.manualStandings) : null,
+      personal_stats_json: d.personalStats ? JSON.stringify(d.personalStats) : null,
+    }));
+  });
+  tx();
 }
 
 function insertGameDay(day) {
@@ -453,6 +581,7 @@ module.exports = {
   findPlayerByTelegramDisplayName,
   setPlayerTelegramDisplayName,
   getAllGameDaysForStats,
+  replaceState,
   insertGameDay,
   getGameDayById,
   getLatestGameDayByStatus,

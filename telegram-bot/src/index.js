@@ -10,6 +10,7 @@ const { playerRating } = require('./core/rating');
 const { smartDivide, optimizeTeamBalance } = require('./core/division');
 const gameRecording = require('./gameRecording');
 const { renderDayReportImages } = require('./imageReport');
+const { startServer } = require('./server');
 
 const TOKEN = process.env.TELEGRAM_BOT_TOKEN;
 const GROUP_CHAT_ID = process.env.TELEGRAM_GROUP_CHAT_ID ? Number(process.env.TELEGRAM_GROUP_CHAT_ID) : null;
@@ -701,6 +702,10 @@ cron.schedule('0 18 * * 3', async () => {
 // успешный запуск никогда не напечатается, даже если бот уже отвечает.
 (async () => {
   try {
+    console.log('Шаг 0/3: HTTP-сервер (общая база + веб-приложение)...');
+    startServer();
+    console.log('Шаг 0/3 OK.');
+
     console.log('Шаг 1/3: getMe()...');
     const me = await bot.telegram.getMe();
     console.log(`Шаг 1/3 OK: это бот @${me.username}.`);
@@ -727,4 +732,4 @@ process.once('SIGTERM', () => bot.stop('SIGTERM'));
 // Диагностическая метка деплоя — если в логах есть эта строка, значит
 // Railway реально забрал самый свежий коммит из ветки, а не закешировал
 // старый билд.
-console.log('BUILD MARKER: roster-factor-overrides (' + new Date().toISOString() + ')');
+console.log('BUILD MARKER: shared-database-web-app (' + new Date().toISOString() + ')');
