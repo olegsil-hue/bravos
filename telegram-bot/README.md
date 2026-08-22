@@ -74,6 +74,99 @@
 8. Railway сам подхватит `npm start` из `package.json` и запустит бота.
    В логах должно появиться `Бот запущен.`.
 
+## Деплой на свой VPS (Timeweb Cloud и похожие)
+
+В отличие от Railway это не «пуш — само задеплоилось»: понадобится
+завести сервер и один раз настроить его руками. Зато без сюрпризов с
+оплатой — обычный тариф VPS, известная фиксированная цена. Шаги 1-4
+(токен бота, свой id, добавить в группу, id группы) — те же, что в
+разделе Railway выше, дальше отличается.
+
+1. **Создайте облачный сервер** на [timeweb.cloud](https://timeweb.cloud):
+   ОС — **Ubuntu 22.04 LTS**, минимальный тариф (1 CPU / 1 ГБ ОЗУ)
+   достаточно. Запишите **IP-адрес** и пароль root (или подключите свой
+   SSH-ключ при создании).
+2. **Подключитесь по SSH** с компьютера:
+   ```bash
+   ssh root@ВАШ_IP
+   ```
+3. **Установите Node.js 20, git и инструменты сборки** (нужны для
+   нативных модулей `better-sqlite3`/`sharp`):
+   ```bash
+   curl -fsSL https://deb.nodesource.com/setup_20.x | bash -
+   apt-get install -y nodejs git build-essential python3
+   ```
+4. **Склонируйте репозиторий и поставьте зависимости**:
+   ```bash
+   cd /opt
+   git clone https://github.com/olegsil-hue/bravos.git
+   cd bravos/telegram-bot
+   git checkout claude/football-heroes-team-division-5p4jqx
+   npm ci --omit=dev
+   ```
+5. **Настройте переменные окружения**:
+   ```bash
+   cp .env.example .env
+   nano .env
+   ```
+   Заполните `TELEGRAM_BOT_TOKEN`, `TELEGRAM_GROUP_CHAT_ID`,
+   `TELEGRAM_ADMIN_USER_ID`, `TIMEZONE`. `DB_PATH` и `PORT` можно оставить
+   по умолчанию (`./data/football.db` и `3000`) — на обычном VPS диск
+   и так постоянный, отдельный «Volume», как на Railway, не нужен.
+6. **pm2** — держит процесс запущенным и поднимает после перезагрузки
+   сервера:
+   ```bash
+   npm install -g pm2
+   pm2 start src/index.js --name football-heroes
+   pm2 save
+   pm2 startup   # выполните команду, которую он выведет
+   ```
+7. **nginx** — чтобы открыть сайт по адресу `http://ВАШ_IP/` (порт 80),
+   а не `:3000`, и один процесс мог слушать 80-й порт без root-прав у
+   Node:
+   ```bash
+   apt-get install -y nginx
+   cat > /etc/nginx/sites-available/football-heroes <<'EOF'
+   server {
+       listen 80;
+       server_name _;
+       location / {
+           proxy_pass http://localhost:3000;
+           proxy_set_header Host $host;
+           proxy_set_header X-Real-IP $remote_addr;
+       }
+   }
+   EOF
+   ln -s /etc/nginx/sites-available/football-heroes /etc/nginx/sites-enabled/
+   rm -f /etc/nginx/sites-enabled/default
+   systemctl restart nginx
+   ```
+8. **Файрвол** — откройте 22 (SSH) и 80 (сайт); проверьте и облачный
+   файрвол в панели Timeweb, если он включён отдельно:
+   ```bash
+   ufw allow 22
+   ufw allow 80
+   ufw enable
+   ```
+9. Откройте `http://ВАШ_IP/` в браузере — должно открыться приложение.
+   Бот отвечает в Telegram сразу же (long polling не требует открытых
+   портов, только исходящий доступ к `api.telegram.org` — на обычном VPS
+   он обычно есть).
+
+**Обновление после новых правок в репозитории:**
+```bash
+cd /opt/bravos/telegram-bot
+git pull
+npm ci --omit=dev
+pm2 restart football-heroes
+```
+
+**HTTPS (по желанию, если заведёте домен):** направьте домен на IP
+сервера (A-запись), затем `apt-get install -y certbot python3-certbot-nginx`
+и `certbot --nginx -d ваш-домен.ру` — сертификат Let's Encrypt настроится
+в nginx автоматически. Без домена (просто по IP) выпустить настоящий
+HTTPS-сертификат нельзя — это ограничение Let's Encrypt, не Timeweb.
+
 ## Первое использование
 
 1. **Регистрация игроков — без ручного /register для каждого.** В
