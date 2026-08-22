@@ -747,4 +747,4 @@ process.once('SIGTERM', () => bot.stop('SIGTERM'));
 // Диагностическая метка деплоя — если в логах есть эта строка, значит
 // Railway реально забрал самый свежий коммит из ветки, а не закешировал
 // старый билд.
-console.log('BUILD MARKER: auto-poll-launch (' + new Date().toISOString() + ')');
+console.log('BUILD MARKER: fix-fk-migration (' + new Date().toISOString() + ')');

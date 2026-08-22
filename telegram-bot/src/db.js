@@ -127,6 +127,12 @@ function runFullStateMigrationIfNeeded() {
   }
 
   const tx = db.transaction(() => {
+    // telegram_links.player_name — внешний ключ на players(name); без
+    // предварительной очистки DELETE FROM players падает с
+    // SQLITE_CONSTRAINT_FOREIGNKEY, если хоть у кого-то уже есть привязка
+    // (/register, голос в опросе с авто-распознаванием и т.п.) — а на уже
+    // работающем боте она почти наверняка есть.
+    db.prepare('DELETE FROM telegram_links').run();
     db.prepare('DELETE FROM live_matches').run();
     db.prepare('DELETE FROM game_days').run();
     db.prepare('DELETE FROM players').run();
@@ -329,7 +335,13 @@ function replaceState(roster, gameDays) {
   const tx = db.transaction(() => {
     const incomingNames = new Set(roster.map(p => p.name));
     db.prepare('SELECT name FROM players').all().forEach(r => {
-      if (!incomingNames.has(r.name)) db.prepare('DELETE FROM players WHERE name = ?').run(r.name);
+      if (!incomingNames.has(r.name)) {
+        // telegram_links.player_name — внешний ключ на players(name), чистим
+        // сначала, иначе удаление игрока с привязкой упадёт (см. коммент у
+        // runFullStateMigrationIfNeeded).
+        db.prepare('DELETE FROM telegram_links WHERE player_name = ?').run(r.name);
+        db.prepare('DELETE FROM players WHERE name = ?').run(r.name);
+      }
     });
     const upsertPlayer = db.prepare(`
       INSERT INTO players (name, pos1, pos2, gk, def, att, end_, telegram_username, telegram_display_name)
