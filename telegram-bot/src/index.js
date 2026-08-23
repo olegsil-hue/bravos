@@ -497,33 +497,10 @@ async function runDivisionForPoll(poll) {
   return { teams, notLinkedCount: notLinked.length, totalIn: inResponses.length };
 }
 
-// Цвета манишек команд: красный/салатовый/белый. Команда с Олегом
-// Сильченко — ВСЕГДА белая, независимо от того, в какую команду его
-// определил алгоритм деления; остальным двум командам цвета достаются в
-// порядке исходных индексов. Если Сильченко в составе нет (не играет в
-// этот день) — цвета идут по порядку с самого начала палитры.
-const JERSEY_COLOR_PALETTE = ['Красные', 'Салатовые', 'Белые'];
-const SILCHENKO_NAME = 'Олег Сильченко';
-
-function assignTeamColors(teams) {
-  const names = new Array(teams.length);
-  const silchenkoIdx = teams.findIndex(t => t.players.some(p => p.name === SILCHENKO_NAME));
-  if (silchenkoIdx === -1) {
-    teams.forEach((_, i) => { names[i] = JERSEY_COLOR_PALETTE[i] || `Команда ${i + 1}`; });
-    return names;
-  }
-  names[silchenkoIdx] = 'Белые';
-  const rest = JERSEY_COLOR_PALETTE.filter(c => c !== 'Белые');
-  let ri = 0;
-  teams.forEach((_, i) => { if (i !== silchenkoIdx) names[i] = rest[ri++] || `Команда ${i + 1}`; });
-  return names;
-}
-
 function formatTeamsMessage(teams, eventDate) {
-  const colorNames = assignTeamColors(teams);
   const lines = [`📅 Игра ${eventDate} — предложенный состав:\n`];
   teams.forEach((team, i) => {
-    lines.push(`${colorNames[i]} (рейтинг ${team.totalRating.toFixed(1)}):`);
+    lines.push(`Команда ${i + 1} (рейтинг ${team.totalRating.toFixed(1)}):`);
     team.players
       .slice()
       .sort((a, b) => b.totalRating - a.totalRating)
@@ -563,11 +540,10 @@ bot.action(/^approve_(\d+)$/, async ctx => {
   db.setPendingDivisionStatus(id, 'approved');
   const poll = db.db.prepare('SELECT * FROM polls WHERE id = ?').get(division.poll_id);
 
-  const colorNames = assignTeamColors(division.teams);
   db.insertGameDay({
     date: poll.event_date,
     teams: division.teams.map((t, i) => ({
-      name: colorNames[i],
+      name: `Команда ${i + 1}`,
       colorIdx: i,
       players: t.players.map(p => p.name),
     })),
