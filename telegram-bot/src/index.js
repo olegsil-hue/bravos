@@ -34,6 +34,27 @@ process.on('uncaughtException', err => console.error('uncaughtException:', err))
 
 const bot = new Telegraf(TOKEN);
 
+// Пассивная привязка Telegram-аккаунта к игроку: срабатывает на ЛЮБОЙ
+// апдейт от пользователя (любая команда, нажатие инлайн-кнопки, голос в
+// опросе — что угодно), без явной команды /register. Нужна, чтобы у бота
+// появился telegram_user_id игрока (для фото профиля на странице «Игроки»,
+// а заодно и для учёта при делении) сразу же, как только человек хоть раз
+// написал боту или нажал что-то в группе. Ждать этого не нужно: Bot API в
+// принципе не даёт узнать id пользователя, пока он сам не прислал хоть
+// один апдейт — раньше этого момента связать имя из списка с конкретным
+// Telegram-аккаунтом невозможно даже теоретически.
+bot.use(async (ctx, next) => {
+  try {
+    if (ctx.from && !ctx.from.is_bot && !db.getPlayerNameByTelegramId(ctx.from.id)) {
+      const matched = matchPlayerByTelegramUser(ctx.from);
+      if (matched) db.linkTelegramUser(ctx.from.id, ctx.from.username, matched);
+    }
+  } catch (e) {
+    console.error('Пассивная привязка Telegram-аккаунта упала:', e.message);
+  }
+  return next();
+});
+
 const POLL_QUESTION = '⚽ Футбол в среду в 19:00 (до 15 человек)';
 const OPT_IN = 'Буду';
 const OPT_OUT = 'Не смогу';
@@ -728,6 +749,29 @@ cron.schedule('0 18 * * 3', async () => {
     console.log('Шаг 2/3: deleteWebhook() (на случай, если где-то остался вебхук)...');
     await bot.telegram.deleteWebhook({ drop_pending_updates: false });
     console.log('Шаг 2/3 OK.');
+
+    // Бонусный бэкфилл привязок: Bot API не даёт получить id всех участников
+    // группы (жёсткое ограничение платформы), но админов — даёт. Сопоставляем
+    // их с игроками сразу при старте, не дожидаясь, пока они сами что-то
+    // напишут боту — те, кто не админ, привяжутся пассивно (см. bot.use()
+    // выше) при первом же взаимодействии с ботом.
+    if (GROUP_CHAT_ID) {
+      try {
+        const admins = await bot.telegram.getChatAdministrators(GROUP_CHAT_ID);
+        let linked = 0;
+        admins.forEach(a => {
+          if (a.user.is_bot || db.getPlayerNameByTelegramId(a.user.id)) return;
+          const matched = matchPlayerByTelegramUser(a.user);
+          if (matched) {
+            db.linkTelegramUser(a.user.id, a.user.username, matched);
+            linked++;
+          }
+        });
+        if (linked) console.log(`Бэкфилл привязок по админам группы: ${linked}.`);
+      } catch (e) {
+        console.error('Бэкфилл привязок по админам группы упал (не критично):', e.message);
+      }
+    }
 
     console.log('Шаг 3/3: bot.launch() — старт поллинга (промис не резолвится, пока бот работает — это нормально, не ждём его)...');
     bot.launch().catch(err => {
