@@ -219,14 +219,38 @@
         .player-item.dragging { opacity: .35; }
         .team-card.drop-target .team-body { outline: 2px dashed #999; outline-offset: -4px; border-radius: 4px; }
         .player-name { font-weight: 600; }
+        .player-row-name {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        /* Фиксированный размер слота — не зависит от того, есть фото или
+           нет, чтобы имена во всех строках стояли на одной вертикали. */
+        .player-avatar-slot {
+            width: 28px;
+            height: 28px;
+            flex: 0 0 28px;
+            border-radius: 50%;
+            cursor: pointer;
+            display: block;
+        }
         .player-avatar {
             width: 28px;
             height: 28px;
             border-radius: 50%;
             object-fit: cover;
-            vertical-align: middle;
-            margin-right: 8px;
             background: #e0e0e0;
+            display: block;
+        }
+        .player-avatar-placeholder {
+            width: 28px;
+            height: 28px;
+            border-radius: 50%;
+            background: #e0e0e0;
+            align-items: center;
+            justify-content: center;
+            font-size: 13px;
+            color: #999;
         }
         .player-stats { display: flex; gap: 6px; align-items: center; }
         .pos-badge {
@@ -1054,8 +1078,13 @@
                                 return `
                                 <tr>
                                     <td class="text-left" style="font-weight: 600;">
-                                        <img src="/api/avatar/${encodeURIComponent(p.name)}" alt="" class="player-avatar" style="cursor:pointer;" title="Нажмите, чтобы загрузить/заменить фото" onerror="this.style.display='none'" onclick="window.pickAvatarFile('${nameEscaped}')">
-                                        ${p.name}
+                                        <div class="player-row-name">
+                                            <span class="player-avatar-slot" onclick="window.pickAvatarFile('${nameEscaped}')" title="Нажмите, чтобы загрузить/заменить фото">
+                                                <img src="/api/avatar/${encodeURIComponent(p.name)}" alt="" class="player-avatar" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
+                                                <span class="player-avatar-placeholder" style="display:none;">📷</span>
+                                            </span>
+                                            ${p.name}
+                                        </div>
                                     </td>
                                     <td><span class="pos-badge" style="background:#f0f0f0;">${p.pos1}</span></td>
                                     <td>${p.pos2 ? `<span class="pos-badge secondary-badge">${p.pos2}</span>` : '—'}</td>
