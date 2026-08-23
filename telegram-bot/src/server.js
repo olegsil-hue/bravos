@@ -11,11 +11,13 @@
 const path = require('path');
 const express = require('express');
 const db = require('./db');
-const { getAvatarPath } = require('./avatar');
+const { getAvatarPath, getManualAvatarPath, saveManualAvatar, deleteManualAvatar } = require('./avatar');
 
 function startServer() {
   const app = express();
-  app.use(express.json({ limit: '5mb' }));
+  // 10mb — с запасом под фото, загруженные вручную (base64 в JSON тяжелее
+  // исходника примерно на треть; сам файл на сервере пережимается до иконки).
+  app.use(express.json({ limit: '10mb' }));
   app.use(express.static(path.join(__dirname, '..', 'public')));
 
   app.get('/api/state', (req, res) => {
@@ -41,11 +43,18 @@ function startServer() {
     }
   });
 
-  // Фото профиля из Telegram для страницы «Игроки». Токен бота используется
-  // только здесь, на сервере, — клиенту отдаётся готовый jpg-файл.
+  // Фото для страницы «Игроки». Приоритет: фото, загруженное вручную из
+  // веб-приложения (не зависит от Telegram вообще) — если его нет, пробуем
+  // фото профиля Telegram (только если игрок уже привязан к id). Токен бота
+  // используется только здесь, на сервере, — клиенту отдаётся готовый jpg.
   app.get('/api/avatar/:playerName', async (req, res) => {
     try {
       const playerName = req.params.playerName;
+      const manualPath = getManualAvatarPath(playerName);
+      if (manualPath) {
+        res.set('Cache-Control', 'public, max-age=3600');
+        return res.sendFile(path.resolve(manualPath));
+      }
       const telegramUserId = db.getTelegramUserIdByPlayerName(playerName);
       if (!telegramUserId) return res.status(404).end();
       const avatarPath = await getAvatarPath(telegramUserId);
@@ -55,6 +64,30 @@ function startServer() {
     } catch (err) {
       console.error('GET /api/avatar упал:', err);
       res.status(500).end();
+    }
+  });
+
+  // Ручная загрузка фото из веб-приложения — { dataUrl: "data:image/...;base64,..." }.
+  app.post('/api/avatar/:playerName', async (req, res) => {
+    try {
+      const playerName = req.params.playerName;
+      if (!db.findPlayerByName(playerName)) return res.status(404).json({ error: 'player_not_found' });
+      const { dataUrl } = req.body || {};
+      await saveManualAvatar(playerName, dataUrl);
+      res.json({ ok: true });
+    } catch (err) {
+      console.error('POST /api/avatar упал:', err);
+      res.status(400).json({ error: err.message || 'bad_request' });
+    }
+  });
+
+  app.delete('/api/avatar/:playerName', (req, res) => {
+    try {
+      deleteManualAvatar(req.params.playerName);
+      res.json({ ok: true });
+    } catch (err) {
+      console.error('DELETE /api/avatar упал:', err);
+      res.status(500).json({ error: 'internal_error' });
     }
   });
 

@@ -12,11 +12,18 @@
 
 const fs = require('fs');
 const path = require('path');
+const sharp = require('sharp');
 
 const TOKEN = process.env.TELEGRAM_BOT_TOKEN;
 const DB_PATH = process.env.DB_PATH || './data/football.db';
 const CACHE_DIR = path.join(path.dirname(DB_PATH), 'avatars');
 fs.mkdirSync(CACHE_DIR, { recursive: true });
+
+// Фото, загруженные вручную из веб-приложения (в обход Telegram Bot API —
+// не зависит от того, привязан ли игрок к telegram_user_id). Приоритетнее
+// фото из Telegram: если для игрока есть ручная загрузка, она побеждает.
+const MANUAL_DIR = path.join(path.dirname(DB_PATH), 'avatars-manual');
+fs.mkdirSync(MANUAL_DIR, { recursive: true });
 
 // Фото профиля меняются редко — сутки кэша достаточно и не нагружает Bot API.
 const CACHE_TTL_MS = 24 * 60 * 60 * 1000;
@@ -79,4 +86,33 @@ async function getAvatarPath(telegramUserId) {
   }
 }
 
-module.exports = { getAvatarPath };
+// Имя игрока (кириллица, пробелы) не годится как имя файла напрямую —
+// кодируем в hex, чтобы не зависеть от особенностей файловой системы.
+function manualKey(playerName) {
+  return Buffer.from(playerName, 'utf8').toString('hex');
+}
+function manualFilePath(playerName) {
+  return path.join(MANUAL_DIR, `${manualKey(playerName)}.jpg`);
+}
+
+function getManualAvatarPath(playerName) {
+  const p = manualFilePath(playerName);
+  return fs.existsSync(p) ? p : null;
+}
+
+// dataUrl — "data:image/jpeg;base64,...." (как отдаёт canvas.toDataURL в
+// браузере). Приводим любое изображение к единому формату/размеру, чтобы
+// не хранить исходники в полный рост телефонных фото.
+async function saveManualAvatar(playerName, dataUrl) {
+  const match = /^data:image\/(png|jpe?g|webp|gif);base64,(.+)$/i.exec(dataUrl || '');
+  if (!match) throw new Error('Ожидается изображение (png/jpeg/webp/gif) в виде data URL.');
+  const buf = Buffer.from(match[2], 'base64');
+  const resized = await sharp(buf).resize(200, 200, { fit: 'cover' }).jpeg({ quality: 85 }).toBuffer();
+  fs.writeFileSync(manualFilePath(playerName), resized);
+}
+
+function deleteManualAvatar(playerName) {
+  try { fs.unlinkSync(manualFilePath(playerName)); } catch (e) { /* не было — и ладно */ }
+}
+
+module.exports = { getAvatarPath, getManualAvatarPath, saveManualAvatar, deleteManualAvatar };
