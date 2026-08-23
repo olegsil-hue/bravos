@@ -286,6 +286,41 @@ function applyKnownRosterFactorOverrides() {
 
 applyKnownRosterFactorOverrides();
 
+// Исторические игровые дни, не попавшие в изначальную full-state-migration
+// (та применяется строго один раз) — см. additional-legacy-gamedays.json.
+// INSERT OR IGNORE по id: если день с таким id уже есть (в т.ч. после
+// применения на предыдущем запуске), ничего не трогаем — безопасно при
+// каждом передеплое.
+function applyAdditionalLegacyGameDays() {
+  let extra;
+  try {
+    extra = require('./additional-legacy-gamedays.json').gameDays;
+  } catch (e) {
+    return; // файла нет — не критично, просто пропускаем
+  }
+  const insertDay = db.prepare(`
+    INSERT OR IGNORE INTO game_days (id, date, legacy, teams_json, matches_json, legacy_stats_json, manual_standings_json, personal_stats_json, status)
+    VALUES (@id, @date, @legacy, @teams_json, @matches_json, @legacy_stats_json, @manual_standings_json, @personal_stats_json, 'completed')
+  `);
+  let added = 0;
+  extra.forEach(d => {
+    const r = insertDay.run({
+      id: d.id,
+      date: d.date,
+      legacy: d.legacy ? 1 : 0,
+      teams_json: JSON.stringify(d.teams || []),
+      matches_json: JSON.stringify(d.matches || []),
+      legacy_stats_json: d.legacyStats ? JSON.stringify(d.legacyStats) : null,
+      manual_standings_json: null,
+      personal_stats_json: null,
+    });
+    if (r.changes) added++;
+  });
+  if (added) console.log(`Добавлены недостающие исторические игровые дни: ${added}.`);
+}
+
+applyAdditionalLegacyGameDays();
+
 // --- Игроки ---
 
 function getRoster() {
