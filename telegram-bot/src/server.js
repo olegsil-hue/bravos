@@ -11,6 +11,7 @@
 const path = require('path');
 const express = require('express');
 const db = require('./db');
+const { getAvatarPath } = require('./avatar');
 
 function startServer() {
   const app = express();
@@ -37,6 +38,23 @@ function startServer() {
     } catch (err) {
       console.error('POST /api/state упал:', err);
       res.status(500).json({ error: 'internal_error' });
+    }
+  });
+
+  // Фото профиля из Telegram для страницы «Игроки». Токен бота используется
+  // только здесь, на сервере, — клиенту отдаётся готовый jpg-файл.
+  app.get('/api/avatar/:playerName', async (req, res) => {
+    try {
+      const playerName = req.params.playerName;
+      const telegramUserId = db.getTelegramUserIdByPlayerName(playerName);
+      if (!telegramUserId) return res.status(404).end();
+      const avatarPath = await getAvatarPath(telegramUserId);
+      if (!avatarPath) return res.status(404).end();
+      res.set('Cache-Control', 'public, max-age=3600');
+      res.sendFile(path.resolve(avatarPath));
+    } catch (err) {
+      console.error('GET /api/avatar упал:', err);
+      res.status(500).end();
     }
   });
 

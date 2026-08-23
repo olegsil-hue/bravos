@@ -219,6 +219,15 @@
         .player-item.dragging { opacity: .35; }
         .team-card.drop-target .team-body { outline: 2px dashed #999; outline-offset: -4px; border-radius: 4px; }
         .player-name { font-weight: 600; }
+        .player-avatar {
+            width: 28px;
+            height: 28px;
+            border-radius: 50%;
+            object-fit: cover;
+            vertical-align: middle;
+            margin-right: 8px;
+            background: #e0e0e0;
+        }
         .player-stats { display: flex; gap: 6px; align-items: center; }
         .pos-badge {
             padding: 2px 6px;
@@ -963,7 +972,7 @@
                                 const gaFactor = window.playerGoalAssistFactor(p.name);
                                 return `
                                 <tr>
-                                    <td class="text-left" style="font-weight: 600;">${p.name}</td>
+                                    <td class="text-left" style="font-weight: 600;"><img src="/api/avatar/${encodeURIComponent(p.name)}" alt="" class="player-avatar" onerror="this.style.display='none'">${p.name}</td>
                                     <td><span class="pos-badge" style="background:#f0f0f0;">${p.pos1}</span></td>
                                     <td>${p.pos2 ? `<span class="pos-badge secondary-badge">${p.pos2}</span>` : '—'}</td>
                                     <td style="font-weight: 700; color: #1e3c72;">${window.playerRating(p).toFixed(2)}</td>

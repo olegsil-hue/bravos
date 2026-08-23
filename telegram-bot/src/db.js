@@ -512,6 +512,14 @@ function getPlayerNameByTelegramId(telegramUserId) {
   return row ? row.player_name : null;
 }
 
+// Обратный поиск — нужен для подтягивания фото профиля (avatar.js): по
+// игроку находим его telegram_user_id, если он когда-либо был привязан
+// (через /register или автосопоставление при делении на команды).
+function getTelegramUserIdByPlayerName(playerName) {
+  const row = db.prepare('SELECT telegram_user_id FROM telegram_links WHERE player_name = ?').get(playerName);
+  return row ? row.telegram_user_id : null;
+}
+
 // --- Опросы ---
 
 function createPoll({ telegramPollId, chatId, messageId, eventDate }) {
@@ -603,6 +611,7 @@ module.exports = {
   appendMatchToGameDay,
   linkTelegramUser,
   getPlayerNameByTelegramId,
+  getTelegramUserIdByPlayerName,
   createPoll,
   getOpenPollByTelegramId,
   getLatestOpenPoll,
