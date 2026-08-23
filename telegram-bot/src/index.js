@@ -45,10 +45,7 @@ const bot = new Telegraf(TOKEN);
 // Telegram-аккаунтом невозможно даже теоретически.
 bot.use(async (ctx, next) => {
   try {
-    if (ctx.from && !ctx.from.is_bot && !db.getPlayerNameByTelegramId(ctx.from.id)) {
-      const matched = matchPlayerByTelegramUser(ctx.from);
-      if (matched) db.linkTelegramUser(ctx.from.id, ctx.from.username, matched);
-    }
+    if (ctx.from) safeAutoLink(ctx.from);
   } catch (e) {
     console.error('Пассивная привязка Telegram-аккаунта упала:', e.message);
   }
@@ -393,6 +390,32 @@ function matchPlayerByTelegramUser(user) {
   return null;
 }
 
+// Автопривязка с защитой от коллизии имён (см. историю «Паша Орлов» vs
+// «Паша Тренин» — оба совпали по generic Telegram-имени "Pavel", из-за
+// чего один игрок получил чужое фото). Если найденный по имени игрок уже
+// привязан к ДРУГОМУ telegram_user_id — это явный признак неоднозначного
+// имени, и мы НЕ перезаписываем/задваиваем привязку молча, а пропускаем и
+// логируем: разбираться придётся вручную (/register от самого человека —
+// однозначен, т.к. имя игрока называет он сам, а не сопоставление по
+// Telegram-нику). Используется всюду, где привязка идёт автоматически —
+// пассивно, по опросу, по бэкфиллу админов и т.п.
+function safeAutoLink(user) {
+  if (!user || user.is_bot) return null;
+  const already = db.getPlayerNameByTelegramId(user.id);
+  if (already) return already;
+  const matched = matchPlayerByTelegramUser(user);
+  if (!matched) return null;
+  if (db.hasOtherTelegramLink(matched, user.id)) {
+    console.warn(
+      `⚠️ Коллизия имён при автопривязке: Telegram id=${user.id} (${telegramDisplayName(user) || user.username || '?'}) ` +
+      `совпал с игроком «${matched}» по имени, но тот уже привязан к другому аккаунту — пропускаю, нужен ручной /register.`
+    );
+    return null;
+  }
+  db.linkTelegramUser(user.id, user.username, matched);
+  return matched;
+}
+
 bot.on('poll_answer', async ctx => {
   const answer = ctx.update.poll_answer;
   const poll = db.getOpenPollByTelegramId(answer.poll_id);
@@ -407,14 +430,7 @@ bot.on('poll_answer', async ctx => {
   // Автопривязка по username или отображаемому имени (заполняются в
   // веб-приложении, либо через /set_usernames и /set_display_names) —
   // связываем автоматически, /register больше не требуется.
-  let playerName = db.getPlayerNameByTelegramId(answer.user.id);
-  if (!playerName) {
-    const matched = matchPlayerByTelegramUser(answer.user);
-    if (matched) {
-      db.linkTelegramUser(answer.user.id, answer.user.username, matched);
-      playerName = matched;
-    }
-  }
+  const playerName = safeAutoLink(answer.user);
 
   if (!playerName) {
     // Не привязан к игроку — не сможем учесть его в делении.
@@ -448,11 +464,7 @@ async function tryLinkByFetchingUsername(telegramUserId) {
   if (!GROUP_CHAT_ID) return null;
   try {
     const member = await bot.telegram.getChatMember(GROUP_CHAT_ID, telegramUserId);
-    const user = member && member.user;
-    const matched = matchPlayerByTelegramUser(user);
-    if (!matched) return null;
-    db.linkTelegramUser(telegramUserId, user.username, matched);
-    return matched;
+    return member && member.user ? safeAutoLink(member.user) : null;
   } catch (e) {
     return null; // пользователь мог выйти из группы и т.п.
   }
@@ -760,12 +772,8 @@ cron.schedule('0 18 * * 3', async () => {
         const admins = await bot.telegram.getChatAdministrators(GROUP_CHAT_ID);
         let linked = 0;
         admins.forEach(a => {
-          if (a.user.is_bot || db.getPlayerNameByTelegramId(a.user.id)) return;
-          const matched = matchPlayerByTelegramUser(a.user);
-          if (matched) {
-            db.linkTelegramUser(a.user.id, a.user.username, matched);
-            linked++;
-          }
+          const wasLinked = a.user && !a.user.is_bot && db.getPlayerNameByTelegramId(a.user.id);
+          if (!wasLinked && safeAutoLink(a.user)) linked++;
         });
         if (linked) console.log(`Бэкфилл привязок по админам группы: ${linked}.`);
       } catch (e) {

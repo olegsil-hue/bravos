@@ -227,6 +227,40 @@ function applyKnownTelegramNames() {
 
 applyKnownTelegramNames();
 
+// Разовое исправление конкретной обнаруженной коллизии: у «Паша Орлов» и
+// «Паша Тренин» настоящие Telegram-аккаунты совпали по generic
+// отображаемому имени "Pavel" (короткое имя без фамилии — недостаточно
+// уникально, чтобы быть надёжным идентификатором) — автосопоставление по
+// имени присвоило привязку (и вместе с ней фото профиля) не тому игроку.
+// Переносим уже установленную привязку на верного игрока, а не удаляем —
+// telegram_user_id настоящий, ошибочным было только то, к какому игроку
+// его приписали. Идемпотентно: как только исправлено один раз, при
+// следующих запусках строк с player_name = 'Паша Орлов' уже не останется,
+// и функция ничего не делает.
+function fixOrlovTreninDisplayNameCollision() {
+  const rows = db.prepare("SELECT telegram_user_id FROM telegram_links WHERE player_name = 'Паша Орлов'").all();
+  if (rows.length === 1) {
+    db.prepare("UPDATE telegram_links SET player_name = 'Паша Тренин' WHERE player_name = 'Паша Орлов'").run();
+    console.log('Исправлена коллизия имён Telegram ("Pavel"): привязка перенесена с «Паша Орлов» на «Паша Тренин».');
+  } else if (rows.length > 1) {
+    console.warn(`⚠️ У «Паша Орлов» ${rows.length} Telegram-привязок одновременно — не переношу автоматически, разберите вручную.`);
+  }
+  db.prepare("UPDATE players SET telegram_display_name = NULL WHERE name = 'Паша Орлов' AND telegram_display_name = 'Pavel'").run();
+}
+
+fixOrlovTreninDisplayNameCollision();
+
+// Есть ли у игрока УЖЕ привязка к ДРУГОМУ telegram_user_id, чем тот,
+// который сейчас пытаемся привязать? Используется как защита от повторения
+// коллизии Орлов/Тренин: если совпадение по отображаемому имени ведёт к
+// игроку, который уже привязан к другому реальному аккаунту — это явный
+// признак, что имя неоднозначно (совпадает у ≥2 разных людей), и
+// автопривязку лучше пропустить, а не молча перезаписать/задвоить.
+function hasOtherTelegramLink(playerName, telegramUserId) {
+  const row = db.prepare('SELECT 1 FROM telegram_links WHERE player_name = ? AND telegram_user_id != ?').get(playerName, telegramUserId);
+  return !!row;
+}
+
 // Ручные правки факторов GK/DEF/ATT/END из веб-версии, не попавшие в базу
 // бота автоматически (см. known-roster-factor-overrides.json) — это
 // отдельная база, синхронизации между ними нет. В отличие от
@@ -612,6 +646,7 @@ module.exports = {
   linkTelegramUser,
   getPlayerNameByTelegramId,
   getTelegramUserIdByPlayerName,
+  hasOtherTelegramLink,
   createPoll,
   getOpenPollByTelegramId,
   getLatestOpenPoll,
