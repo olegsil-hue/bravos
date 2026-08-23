@@ -1,5 +1,5 @@
 {
-  "_comment": "Дополнительные исторические игровые дни (формат legacy — только суммарные голы/передачи за день на команду, без разбивки по конкретным мини-играм), не попавшие в изначальную full-state-migration.json. Источник: гугл-таблица Football Heroes, присланная пользователем 2026-08-23 (файл Football_Heroes_____________.csv). Заполняли дыру 24.06 -> 22.07 в уже загруженной истории. Все суммы голов/передач по каждой команде сверены построчно с контрольной строкой «Рейтинг» в исходной таблице. Применяется на каждом запуске бота (applyAdditionalLegacyGameDays в db.js), но INSERT OR IGNORE по id — не трогает день, если он уже есть (безопасно при передеплое).",
+  "_comment": "Дополнительные исторические игровые дни, не попавшие в изначальную full-state-migration.json. Источник: гугл-таблица Football Heroes, присланная пользователем 2026-08-23 (CSV + скриншоты). Заполняли дыру 24.06 -> 22.07 в уже загруженной истории. legacyStats — суммарные Г/П за день на игрока (для вкладки «Статистика», используется всегда, т.к. legacy=true). matches — точный по-игровой лог (для отображения в карточке дня, см. renderLegacyDayCard в public/index.html) — teamAIdx/teamBIdx/scoreA/scoreB, wonByPenalties — индекс команды, победившей в серии пенальти при равном счёте (учитывается только для наглядности карточки, НЕ влияет на очки/статистику). Все суммы голов/передач и очков по каждой команде сверены построчно с контрольными строками «Рейтинг»/«тотал» исходной таблицы, ротация «победитель остаётся» проверена по всем играм каждого дня. Применяется на каждом запуске бота (applyAdditionalLegacyGameDays в db.js) через UPSERT по id — так эту запись можно уточнять повторно, не удаляя вручную уже вставленный день.",
   "gameDays": [
     {
       "id": 1700000000016,
@@ -45,7 +45,21 @@
           { "name": "Дима Фродин", "goals": 0, "assists": 0 }
         ]
       ],
-      "matches": []
+      "matches": [
+        { "teamAIdx": 0, "teamBIdx": 2, "scoreA": 1, "scoreB": 1, "wonByPenalties": 0 },
+        { "teamAIdx": 0, "teamBIdx": 1, "scoreA": 1, "scoreB": 1, "wonByPenalties": 1 },
+        { "teamAIdx": 1, "teamBIdx": 2, "scoreA": 2, "scoreB": 0 },
+        { "teamAIdx": 0, "teamBIdx": 1, "scoreA": 0, "scoreB": 0, "wonByPenalties": 0 },
+        { "teamAIdx": 0, "teamBIdx": 2, "scoreA": 1, "scoreB": 1, "wonByPenalties": 2 },
+        { "teamAIdx": 1, "teamBIdx": 2, "scoreA": 2, "scoreB": 0 },
+        { "teamAIdx": 0, "teamBIdx": 1, "scoreA": 2, "scoreB": 0 },
+        { "teamAIdx": 0, "teamBIdx": 2, "scoreA": 1, "scoreB": 1, "wonByPenalties": 2 },
+        { "teamAIdx": 1, "teamBIdx": 2, "scoreA": 1, "scoreB": 1, "wonByPenalties": 1 },
+        { "teamAIdx": 0, "teamBIdx": 1, "scoreA": 0, "scoreB": 1 },
+        { "teamAIdx": 1, "teamBIdx": 2, "scoreA": 0, "scoreB": 0, "wonByPenalties": 2 },
+        { "teamAIdx": 0, "teamBIdx": 2, "scoreA": 0, "scoreB": 1 },
+        { "teamAIdx": 1, "teamBIdx": 2, "scoreA": 2, "scoreB": 0 }
+      ]
     },
     {
       "id": 1700000000017,
@@ -91,7 +105,21 @@
           { "name": "Андрей Берликов", "goals": 0, "assists": 0 }
         ]
       ],
-      "matches": []
+      "matches": [
+        { "teamAIdx": 0, "teamBIdx": 2, "scoreA": 0, "scoreB": 1 },
+        { "teamAIdx": 1, "teamBIdx": 2, "scoreA": 0, "scoreB": 2 },
+        { "teamAIdx": 0, "teamBIdx": 2, "scoreA": 2, "scoreB": 0 },
+        { "teamAIdx": 0, "teamBIdx": 1, "scoreA": 1, "scoreB": 0 },
+        { "teamAIdx": 0, "teamBIdx": 2, "scoreA": 1, "scoreB": 1 },
+        { "teamAIdx": 1, "teamBIdx": 2, "scoreA": 1, "scoreB": 2 },
+        { "teamAIdx": 0, "teamBIdx": 2, "scoreA": 0, "scoreB": 2 },
+        { "teamAIdx": 1, "teamBIdx": 2, "scoreA": 0, "scoreB": 1 },
+        { "teamAIdx": 0, "teamBIdx": 2, "scoreA": 2, "scoreB": 0 },
+        { "teamAIdx": 0, "teamBIdx": 1, "scoreA": 0, "scoreB": 2 },
+        { "teamAIdx": 1, "teamBIdx": 2, "scoreA": 0, "scoreB": 1 },
+        { "teamAIdx": 0, "teamBIdx": 2, "scoreA": 2, "scoreB": 0 },
+        { "teamAIdx": 0, "teamBIdx": 1, "scoreA": 1, "scoreB": 1 }
+      ]
     },
     {
       "id": 1700000000018,
@@ -137,7 +165,22 @@
           { "name": "Кирилл Лизунов", "goals": 1, "assists": 2 }
         ]
       ],
-      "matches": []
+      "matches": [
+        { "teamAIdx": 0, "teamBIdx": 2, "scoreA": 1, "scoreB": 0 },
+        { "teamAIdx": 0, "teamBIdx": 1, "scoreA": 0, "scoreB": 1 },
+        { "teamAIdx": 1, "teamBIdx": 2, "scoreA": 0, "scoreB": 2 },
+        { "teamAIdx": 0, "teamBIdx": 2, "scoreA": 0, "scoreB": 0 },
+        { "teamAIdx": 0, "teamBIdx": 1, "scoreA": 2, "scoreB": 0 },
+        { "teamAIdx": 0, "teamBIdx": 2, "scoreA": 0, "scoreB": 0 },
+        { "teamAIdx": 1, "teamBIdx": 2, "scoreA": 0, "scoreB": 0 },
+        { "teamAIdx": 0, "teamBIdx": 1, "scoreA": 1, "scoreB": 1 },
+        { "teamAIdx": 0, "teamBIdx": 2, "scoreA": 1, "scoreB": 0 },
+        { "teamAIdx": 0, "teamBIdx": 1, "scoreA": 0, "scoreB": 1 },
+        { "teamAIdx": 1, "teamBIdx": 2, "scoreA": 0, "scoreB": 1 },
+        { "teamAIdx": 0, "teamBIdx": 2, "scoreA": 1, "scoreB": 0 },
+        { "teamAIdx": 0, "teamBIdx": 1, "scoreA": 2, "scoreB": 1 },
+        { "teamAIdx": 0, "teamBIdx": 2, "scoreA": 1, "scoreB": 1 }
+      ]
     }
   ]
 }

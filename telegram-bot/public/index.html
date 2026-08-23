@@ -1989,6 +1989,28 @@
                 `;
             }).join('');
 
+            // Точный по-игровой лог (если известен) — сами суммы Г/П для
+            // рейтинга/статистики берутся из legacyStats выше, этот блок
+            // только для наглядности хода дня, на подсчёт не влияет.
+            const matchesHtml = (day.matches && day.matches.length) ? `
+                <div style="margin-top:16px;">
+                    <div style="font-weight:700; margin-bottom:6px;">Мини-игры (${day.matches.length})</div>
+                    <div style="overflow-x:auto;">
+                        <table class="data-table">
+                            <thead><tr><th>№</th><th class="text-left">Матч</th><th>Счёт</th></tr></thead>
+                            <tbody>
+                                ${day.matches.map((m, i) => {
+                                    const nameA = (day.teams[m.teamAIdx] || {}).name || `Команда ${m.teamAIdx + 1}`;
+                                    const nameB = (day.teams[m.teamBIdx] || {}).name || `Команда ${m.teamBIdx + 1}`;
+                                    const pen = m.wonByPenalties === m.teamAIdx ? ` (⚽ ${nameA} по пен.)` : m.wonByPenalties === m.teamBIdx ? ` (⚽ ${nameB} по пен.)` : '';
+                                    return `<tr><td>${i + 1}</td><td class="text-left">${nameA} – ${nameB}</td><td>${m.scoreA}:${m.scoreB}${pen}</td></tr>`;
+                                }).join('')}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            ` : '';
+
             return `
                 <div class="day-card">
                     <div class="day-card-header">
@@ -1997,6 +2019,7 @@
                     </div>
                     <div class="day-body">
                         <div class="legacy-teams-grid">${teamsHtml}</div>
+                        ${matchesHtml}
                     </div>
                 </div>
             `;

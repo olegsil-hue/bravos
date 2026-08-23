@@ -288,9 +288,13 @@ applyKnownRosterFactorOverrides();
 
 // Исторические игровые дни, не попавшие в изначальную full-state-migration
 // (та применяется строго один раз) — см. additional-legacy-gamedays.json.
-// INSERT OR IGNORE по id: если день с таким id уже есть (в т.ч. после
-// применения на предыдущем запуске), ничего не трогаем — безопасно при
-// каждом передеплое.
+// UPSERT по id (не INSERT OR IGNORE): эти дни — авторитетные данные из
+// исходной таблицы, которые могли доуточняться (например, сначала завели
+// только суммарные Г/П за день, потом добавили точный по-игровой лог) —
+// каждый новый запуск подтягивает актуальную версию файла. Как и
+// applyKnownRosterFactorOverrides, намеренно ВСЕГДА перезаписывает (это не
+// запасной вариант на случай пустого поля, а подправленные авторитетные
+// цифры).
 function applyAdditionalLegacyGameDays() {
   let extra;
   try {
@@ -298,13 +302,20 @@ function applyAdditionalLegacyGameDays() {
   } catch (e) {
     return; // файла нет — не критично, просто пропускаем
   }
-  const insertDay = db.prepare(`
-    INSERT OR IGNORE INTO game_days (id, date, legacy, teams_json, matches_json, legacy_stats_json, manual_standings_json, personal_stats_json, status)
+  const upsertDay = db.prepare(`
+    INSERT INTO game_days (id, date, legacy, teams_json, matches_json, legacy_stats_json, manual_standings_json, personal_stats_json, status)
     VALUES (@id, @date, @legacy, @teams_json, @matches_json, @legacy_stats_json, @manual_standings_json, @personal_stats_json, 'completed')
+    ON CONFLICT(id) DO UPDATE SET
+      date = excluded.date,
+      legacy = excluded.legacy,
+      teams_json = excluded.teams_json,
+      matches_json = excluded.matches_json,
+      legacy_stats_json = excluded.legacy_stats_json
+      -- status/manual_standings/personal_stats намеренно не трогаем при конфликте
   `);
-  let added = 0;
+  let touched = 0;
   extra.forEach(d => {
-    const r = insertDay.run({
+    const r = upsertDay.run({
       id: d.id,
       date: d.date,
       legacy: d.legacy ? 1 : 0,
@@ -314,9 +325,9 @@ function applyAdditionalLegacyGameDays() {
       manual_standings_json: null,
       personal_stats_json: null,
     });
-    if (r.changes) added++;
+    if (r.changes) touched++;
   });
-  if (added) console.log(`Добавлены недостающие исторические игровые дни: ${added}.`);
+  if (touched) console.log(`Добавлены/обновлены недостающие исторические игровые дни: ${touched}.`);
 }
 
 applyAdditionalLegacyGameDays();
