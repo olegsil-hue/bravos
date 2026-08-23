@@ -363,6 +363,25 @@ function computeStandings(day) {
     return table.sort((x, y) => y.pts - x.pts || (y.gf - y.ga) - (x.gf - x.ga) || y.gf - x.gf);
 }
 
+function computeDayPersonalStats(day) {
+    const stats = {};
+    const ensure = (name, teamIdx) => {
+        if (!stats[name]) stats[name] = { name, teamIdx, goals: 0, assists: 0 };
+        return stats[name];
+    };
+    (day.matches || []).forEach(m => {
+        (m.scorersA || []).forEach(s => {
+            ensure(s.name, m.teamAIdx).goals += s.goals;
+            if (s.assist) ensure(s.assist, m.teamAIdx).assists += s.goals;
+        });
+        (m.scorersB || []).forEach(s => {
+            ensure(s.name, m.teamBIdx).goals += s.goals;
+            if (s.assist) ensure(s.assist, m.teamBIdx).assists += s.goals;
+        });
+    });
+    return Object.values(stats).sort((a, b) => (b.goals + b.assists) - (a.goals + a.assists) || b.goals - a.goals);
+}
+
 function formatDate(dateStr) {
     const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(dateStr);
     return m ? `${m[3]}.${m[2]}.${m[1]}` : dateStr;
@@ -508,7 +527,94 @@ function renderDayCard(day, num) {
         `;
     }
 
-    const standings = computeStandings(day);
+    const usingManualStandings = (day.matches || []).length === 0 && Array.isArray(day.manualStandings);
+    const standings = usingManualStandings
+        ? day.manualStandings.map((s, i) => ({ idx: i, ...s }))
+            .sort((x, y) => y.pts - x.pts || (y.gf - y.ga) - (x.gf - x.ga) || y.gf - x.gf)
+        : computeStandings(day);
+    const teamName = idx => (day.teams[idx] || {}).name || `Команда ${idx + 1}`;
+
+    const standingsHtml = `
+        <table class="standings-table">
+            <thead>
+                <tr>
+                    <th class="left">Команда</th><th>И</th><th>В</th><th>Н</th><th>П</th><th>З</th><th>П</th><th>О</th>
+                </tr>
+            </thead>
+            <tbody>
+                ${standings.map((t, i) => `
+                    <tr class="${i === 0 && t.pts > 0 ? 'winner' : ''}">
+                        <td class="left">${i === 0 && t.pts > 0 ? '🏆 ' : ''}${teamName(t.idx)}</td>
+                        <td>${t.gp}</td><td>${t.w}</td><td>${t.d}</td><td>${t.l}</td>
+                        <td>${t.gf}:${t.ga}</td><td><b>${t.pts}</b></td>
+                    </tr>
+                `).join('')}
+            </tbody>
+        </table>
+    `;
+
+    // Личная статистика: либо посчитана из протокола мини-игр, либо (если
+    // протокол не сохранился, а есть только итоговые цифры) — как есть из
+    // day.personalStats, с пометкой, что список может быть неполным.
+    let extraHtml = '';
+    if (usingManualStandings) {
+        if (Array.isArray(day.personalStats) && day.personalStats.length) {
+            extraHtml = `
+                <div class="section-title" style="margin-top:16px;">Личная статистика (может быть неполной — протокол мини-игр не сохранился)</div>
+                <table class="standings-table">
+                    <thead><tr><th class="left">Игрок</th><th class="left">Команда</th><th>Голы</th><th>Пасы</th></tr></thead>
+                    <tbody>
+                        ${day.personalStats.map(p => `
+                            <tr>
+                                <td class="left"><span style="display:inline-flex;align-items:center;gap:6px;">${avatarImg(p.name, 22)}${p.name}</span></td>
+                                <td class="left">${teamName(p.teamIdx)}</td>
+                                <td>${p.goals}</td><td>${p.assists}</td>
+                            </tr>
+                        `).join('')}
+                    </tbody>
+                </table>
+            `;
+        } else {
+            extraHtml = `<div class="empty-state" style="padding:16px 0;">Протокол мини-игр не сохранился, личная статистика недоступна.</div>`;
+        }
+    } else {
+        const personal = computeDayPersonalStats(day);
+        extraHtml = `
+            <div class="section-title" style="margin-top:16px;">Мини-игры (${(day.matches || []).length})</div>
+            <div class="matches-mini">
+                ${(day.matches || []).map((m, i) => {
+                    const scorersA = (m.scorersA || []).map(s => `${s.name} ×${s.goals}${s.assist ? ` (пас: ${s.assist})` : ''}`).join(', ') || '—';
+                    const scorersB = (m.scorersB || []).map(s => `${s.name} ×${s.goals}${s.assist ? ` (пас: ${s.assist})` : ''}`).join(', ') || '—';
+                    const pen = m.wonByPenalties === m.teamAIdx ? ` (⚽ ${teamName(m.teamAIdx)} по пен.)` : m.wonByPenalties === m.teamBIdx ? ` (⚽ ${teamName(m.teamBIdx)} по пен.)` : '';
+                    return `
+                        <div class="row" style="flex-direction:column; align-items:stretch; gap:2px;">
+                            <div style="display:flex; justify-content:space-between;">
+                                <span>${i + 1}. ${teamName(m.teamAIdx)} – ${teamName(m.teamBIdx)}</span>
+                                <span><b>${m.scoreA}:${m.scoreB}</b>${pen}</span>
+                            </div>
+                            <div style="font-size:11px; opacity:.75;">${scorersA} · ${scorersB}</div>
+                        </div>
+                    `;
+                }).join('') || '<div class="empty-state" style="padding:8px 0;">Мини-игр пока нет</div>'}
+            </div>
+            ${personal.length ? `
+            <div class="section-title" style="margin-top:16px;">Личная статистика дня</div>
+            <table class="standings-table">
+                <thead><tr><th class="left">Игрок</th><th class="left">Команда</th><th>Голы</th><th>Пасы</th><th>Очки</th></tr></thead>
+                <tbody>
+                    ${personal.map((p, i) => `
+                        <tr class="${i === 0 ? 'winner' : ''}">
+                            <td class="left"><span style="display:inline-flex;align-items:center;gap:6px;">${avatarImg(p.name, 22)}${p.name}</span></td>
+                            <td class="left">${teamName(p.teamIdx)}</td>
+                            <td>${p.goals}</td><td>${p.assists}</td><td><b>${p.goals + p.assists}</b></td>
+                        </tr>
+                    `).join('')}
+                </tbody>
+            </table>
+            ` : ''}
+        `;
+    }
+
     return `
         <div class="day-card">
             <div class="day-head">
@@ -516,22 +622,8 @@ function renderDayCard(day, num) {
                 <div class="day-badge">${(day.matches || []).length} игр</div>
             </div>
             <div class="day-body">
-                <table class="standings-table">
-                    <thead>
-                        <tr>
-                            <th class="left">Команда</th><th>И</th><th>В</th><th>Н</th><th>П</th><th>З</th><th>П</th><th>О</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        ${standings.map((t, i) => `
-                            <tr class="${i === 0 ? 'winner' : ''}">
-                                <td class="left">${i === 0 ? '🏆 ' : ''}${t.name}</td>
-                                <td>${t.gp}</td><td>${t.w}</td><td>${t.d}</td><td>${t.l}</td>
-                                <td>${t.gf}</td><td>${t.ga}</td><td><b>${t.pts}</b></td>
-                            </tr>
-                        `).join('')}
-                    </tbody>
-                </table>
+                ${standingsHtml}
+                ${extraHtml}
             </div>
         </div>
     `;

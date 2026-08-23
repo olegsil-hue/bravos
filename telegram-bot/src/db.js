@@ -310,8 +310,10 @@ function applyAdditionalLegacyGameDays() {
       legacy = excluded.legacy,
       teams_json = excluded.teams_json,
       matches_json = excluded.matches_json,
-      legacy_stats_json = excluded.legacy_stats_json
-      -- status/manual_standings/personal_stats намеренно не трогаем при конфликте
+      legacy_stats_json = excluded.legacy_stats_json,
+      manual_standings_json = excluded.manual_standings_json,
+      personal_stats_json = excluded.personal_stats_json
+      -- status намеренно не трогаем при конфликте — управляется ботом
   `);
   let touched = 0;
   extra.forEach(d => {
@@ -322,8 +324,8 @@ function applyAdditionalLegacyGameDays() {
       teams_json: JSON.stringify(d.teams || []),
       matches_json: JSON.stringify(d.matches || []),
       legacy_stats_json: d.legacyStats ? JSON.stringify(d.legacyStats) : null,
-      manual_standings_json: null,
-      personal_stats_json: null,
+      manual_standings_json: d.manualStandings ? JSON.stringify(d.manualStandings) : null,
+      personal_stats_json: d.personalStats ? JSON.stringify(d.personalStats) : null,
     });
     if (r.changes) touched++;
   });
