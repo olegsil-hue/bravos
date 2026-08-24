@@ -249,6 +249,30 @@ bot.command('status', ctx => {
 // оставленный тестовый) и /divide_now по умолчанию берёт не тот
 // (getLatestOpenPoll — это «последний СОЗДАННЫЙ», не «с наибольшим
 // числом голосов»). Отсюда видно id нужного опроса для /divide_now <id>.
+// Закрывает опрос и удаляет само сообщение с ним из чата — «Stop Poll» в
+// самом Telegram только останавливает голосование, сообщение остаётся
+// висеть. Без аргумента — последний открытый опрос; можно указать id
+// числом (смотрите в /polls), если открытых несколько.
+bot.command('cancel_poll', async ctx => {
+  if (!isAdmin(ctx)) return ctx.reply('Эта команда только для администратора.');
+  const explicitId = parseIdArg(ctx, 'cancel_poll');
+  const poll = explicitId ? db.getPollById(explicitId) : db.getLatestOpenPoll();
+  if (!poll) return ctx.reply('Открытых опросов нет. Если нужен конкретный закрытый — id числом, см. /polls.');
+
+  db.closePoll(poll.id);
+  try {
+    await bot.telegram.deleteMessage(poll.chat_id, poll.message_id);
+    return ctx.reply(`✅ Опрос #${poll.id} закрыт, сообщение в группе удалено.`);
+  } catch (e) {
+    // Бот может удалить сообщение, только если он админ группы (либо
+    // сообщение младше 48 часов) — если не вышло, хотя бы закрыли в базе.
+    return ctx.reply(
+      `Опрос #${poll.id} закрыт в базе, но сообщение удалить не смог (${e.message}). ` +
+      `Сделайте бота админом группы, либо удалите сообщение вручную (долгий тап → Удалить).`
+    );
+  }
+});
+
 bot.command('polls', ctx => {
   if (!isAdmin(ctx)) return ctx.reply('Эта команда только для администратора.');
   const polls = db.getAllPollsWithCounts();
@@ -704,6 +728,25 @@ bot.command('delete_day', ctx => {
   if (!id) return ctx.reply('Использование: /delete_day 20 — просто число id (без скобок и «#»), смотрите в /days.');
   const ok = db.deleteGameDay(id);
   return ctx.reply(ok ? `✅ Игровой день #${id} удалён.` : `❌ День #${id} не найден.`);
+});
+
+// Переводит игровой день в статус 'approved' — именно его ищет
+// /start_game (db.getLatestGameDayByStatus('approved')). Нужна, когда
+// состав завели НЕ через опрос бота (например, поделили на команды в
+// веб-приложении и сохранили) — такие дни попадают в базу со статусом
+// 'completed' и без этой команды /start_game их просто не видит. Без
+// аргумента — берёт самый свежий день по id; конкретный — id числом,
+// смотрите в /days.
+bot.command('approve_day', ctx => {
+  if (!isAdmin(ctx)) return ctx.reply('Эта команда только для администратора.');
+  const explicitId = parseIdArg(ctx, 'approve_day');
+  const id = explicitId || (db.getAllGameDaysBrief()[0] || {}).id;
+  if (!id) return ctx.reply('Игровых дней пока нет — сначала заведите состав (опрос+деление или веб-приложение).');
+  const day = db.getGameDayById(id);
+  if (!day) return ctx.reply(`❌ День #${id} не найден.`);
+  if (day.teams.length < 2) return ctx.reply(`❌ У дня #${id} задано меньше 2 команд — нечего утверждать.`);
+  db.setGameDayStatus(id, 'approved');
+  return ctx.reply(`✅ День #${id} (${day.date}) утверждён. Теперь можно /start_game.`);
 });
 
 // --- Кнопки записи гола/паса ---
