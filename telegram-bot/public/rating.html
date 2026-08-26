@@ -149,6 +149,29 @@
     tbody tr.top2 { background: linear-gradient(90deg, rgba(212,175,55,0.08), transparent 70%); }
     tbody tr.top3 { background: linear-gradient(90deg, rgba(212,175,55,0.05), transparent 70%); }
 
+    .prompt-box {
+        margin: 0 14px 4px;
+        background: var(--card);
+        border: 1px solid var(--border);
+        border-radius: 10px;
+        padding: 12px 14px;
+        font-family: 'SF Mono', 'Cascadia Code', Consolas, monospace;
+        font-size: 11px;
+        line-height: 1.55;
+        color: var(--text-dim);
+    }
+    .prompt-box .prompt-label {
+        color: var(--gold-bright);
+        font-weight: 700;
+        letter-spacing: 1px;
+        text-transform: uppercase;
+        font-size: 9.5px;
+        margin-bottom: 6px;
+        font-family: 'Segoe UI', Roboto, sans-serif;
+    }
+    .prompt-box code { color: var(--text); }
+    footer .prompt-box { margin: 16px auto 0; max-width: 640px; text-align: left; }
+
     .rank { font-weight: 800; color: var(--text-dim); font-variant-numeric: tabular-nums; }
     .rank.medal { font-size: 16px; }
 
@@ -272,6 +295,11 @@
         <div class="tagline">Официальный рейтинг группы</div>
     </div>
 
+    <div class="prompt-box" style="margin-top:14px;">
+        <div class="prompt-label">Промпт: как считается рейтинг</div>
+        <code>Рейтинг = 0.6×Атака + 0.4×(Вратарь+Защита+Выносливость)/3, затем на 95% сохраняется, на 5% сдвигается к результативности: min(10, (Голы+Передачи)/Игры×2). Все навыки — целые числа 0–10; результативность учитывается только при наличии сыгранных игр.</code>
+    </div>
+
     <div class="tabs">
         <button class="tab-btn active" data-tab="rating" onclick="switchPanel('rating')">🏆 Рейтинг</button>
         <button class="tab-btn" data-tab="stats" onclick="switchPanel('stats')">📊 Статистика</button>
@@ -290,7 +318,14 @@
         <div id="daysContainer"><div class="empty-state">Загрузка…</div></div>
     </div>
 
-    <footer>FOOTBALL HEROES</footer>
+    <footer>
+        FOOTBALL HEROES
+        <div class="prompt-box">
+            <div class="prompt-label">Промпт: как считается рейтинг</div>
+            <code>Рейтинг = 0.6×Атака + 0.4×(Вратарь+Защита+Выносливость)/3, затем на 95% сохраняется, на 5% сдвигается к результативности: min(10, (Голы+Передачи)/Игры×2). Все навыки — целые числа 0–10; результативность учитывается только при наличии сыгранных игр.</code>
+        </div>
+        <div style="margin-top:14px;"><a href="/how-it-works.html" style="color:var(--gold-bright);text-decoration:none;font-weight:700;letter-spacing:.5px;">ℹ️ Как устроен бот и весь сервис →</a></div>
+    </footer>
 </div>
 
 <script>
