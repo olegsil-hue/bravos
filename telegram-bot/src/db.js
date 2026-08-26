@@ -337,10 +337,15 @@ applyAdditionalLegacyGameDays();
 // Точечные патчи протокола мини-игр для уже существующих дней (см.
 // match-log-patches.json) — например, день был заведён (составы) через
 // веб-приложение, а сам протокол игр записан не через /start_game (боту
-// не показать кнопками), а из чат-лога задним числом. В отличие от
+// не показать кнопками), а из чат-лога задним числом, включая точечные
+// правки отдельных голов/пасов после первой записи. В отличие от
 // applyAdditionalLegacyGameDays, здесь НЕ трогаем teams_json (составы уже
-// корректны) и применяем ТОЛЬКО если matches_json у дня сейчас пустой —
-// не рискуем затереть реально записанные вживую игры.
+// корректны). Как и known-roster-factor-overrides.json — ВСЕГДА
+// перезаписывает matches_json для дней из этого файла (не только на
+// пустое поле): это авторитетные подправленные данные, а не запасной
+// вариант. Файл предназначен только для дней, чей протокол целиком ведётся
+// из чат-лога, а не вживую через /start_game — не добавляйте сюда день,
+// который уже реально пишется кнопками бота.
 function applyMatchLogPatches() {
   let patches;
   try {
@@ -355,10 +360,8 @@ function applyMatchLogPatches() {
       console.warn(`⚠️ match-log-patches: день #${p.id} не найден в базе — пропускаю (сначала должен быть создан, например через веб-приложение).`);
       return;
     }
-    const current = JSON.parse(row.matches_json || '[]');
-    if (current.length > 0) return; // уже есть протокол — не трогаем
-    db.prepare('UPDATE game_days SET matches_json = ? WHERE id = ?').run(JSON.stringify(p.matches), p.id);
-    applied++;
+    const r = db.prepare('UPDATE game_days SET matches_json = ? WHERE id = ?').run(JSON.stringify(p.matches), p.id);
+    if (r.changes) applied++;
   });
   if (applied) console.log(`Применены патчи протокола мини-игр: ${applied}.`);
 }
