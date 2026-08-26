@@ -334,6 +334,37 @@ function applyAdditionalLegacyGameDays() {
 
 applyAdditionalLegacyGameDays();
 
+// Точечные патчи протокола мини-игр для уже существующих дней (см.
+// match-log-patches.json) — например, день был заведён (составы) через
+// веб-приложение, а сам протокол игр записан не через /start_game (боту
+// не показать кнопками), а из чат-лога задним числом. В отличие от
+// applyAdditionalLegacyGameDays, здесь НЕ трогаем teams_json (составы уже
+// корректны) и применяем ТОЛЬКО если matches_json у дня сейчас пустой —
+// не рискуем затереть реально записанные вживую игры.
+function applyMatchLogPatches() {
+  let patches;
+  try {
+    patches = require('./match-log-patches.json').patches;
+  } catch (e) {
+    return; // файла нет — не критично, просто пропускаем
+  }
+  let applied = 0;
+  patches.forEach(p => {
+    const row = db.prepare('SELECT matches_json FROM game_days WHERE id = ?').get(p.id);
+    if (!row) {
+      console.warn(`⚠️ match-log-patches: день #${p.id} не найден в базе — пропускаю (сначала должен быть создан, например через веб-приложение).`);
+      return;
+    }
+    const current = JSON.parse(row.matches_json || '[]');
+    if (current.length > 0) return; // уже есть протокол — не трогаем
+    db.prepare('UPDATE game_days SET matches_json = ? WHERE id = ?').run(JSON.stringify(p.matches), p.id);
+    applied++;
+  });
+  if (applied) console.log(`Применены патчи протокола мини-игр: ${applied}.`);
+}
+
+applyMatchLogPatches();
+
 // --- Игроки ---
 
 function getRoster() {
