@@ -137,26 +137,35 @@
   .hero-title{font-size:clamp(28px,3.2vw,42px);line-height:.96;margin-bottom:14px;}
   .hero-sub{font-size:13.5px;color:var(--muted);font-weight:600;line-height:1.55;max-width:26ch;}
 
-  .hero-right{display:flex;flex-direction:column;gap:12px;min-height:0;}
+  .hero-right{display:grid;grid-template-columns:1fr 1fr;grid-template-rows:1fr 1fr;gap:12px;min-height:0;}
   .mockup{
-    flex:1;border-radius:14px;overflow:hidden;border:1px solid var(--line);
+    border-radius:14px;overflow:hidden;border:1px solid var(--line);
     display:flex;flex-direction:column;
     box-shadow:0 10px 22px -18px rgba(20,10,50,.35);
   }
-  .mockup-bar{display:flex;align-items:center;gap:6px;padding:7px 12px;background:#efece4;border-bottom:1px solid var(--line);flex-shrink:0;}
-  .mockup-bar i{width:7px;height:7px;border-radius:50%;background:#d8d3c4;}
-  .mockup-bar span{margin-left:8px;font-size:10px;color:var(--muted);font-weight:700;letter-spacing:.02em;}
-  .mockup-body{flex:1;display:flex;align-items:center;gap:14px;padding:10px 16px;position:relative;overflow:hidden;}
+  .mockup-bar{display:flex;align-items:center;gap:6px;padding:6px 10px;background:#efece4;border-bottom:1px solid var(--line);flex-shrink:0;}
+  .mockup-bar i{width:6px;height:6px;border-radius:50%;background:#d8d3c4;}
+  .mockup-bar span{margin-left:6px;font-size:9px;color:var(--muted);font-weight:700;letter-spacing:.02em;}
+  .mockup-body{flex:1;display:flex;align-items:center;gap:10px;padding:10px 12px;position:relative;overflow:hidden;}
 
   .mockup--dating .mockup-body{background:linear-gradient(135deg,#ffe3ec,#ffc9dd);}
-  .avatar{width:44px;height:44px;flex-shrink:0;}
-  .mockup-copy{font-size:12px;font-weight:600;color:#5c1533;line-height:1.4;}
-  .mockup-copy b{display:block;font-family:'Unbounded',sans-serif;font-size:13px;text-transform:uppercase;margin-bottom:2px;}
+  .avatar{width:38px;height:38px;flex-shrink:0;}
+  .mockup-copy{font-size:11px;font-weight:600;color:#5c1533;line-height:1.35;}
+  .mockup-copy b{display:block;font-family:'Unbounded',sans-serif;font-size:12px;text-transform:uppercase;margin-bottom:2px;}
 
-  .mockup--it .mockup-body{background:linear-gradient(135deg,#150f2e,#341a66);align-items:flex-end;padding-bottom:12px;}
+  .mockup--bar .mockup-body{background:linear-gradient(150deg,#241207,#5c2c0e 60%,#a1600f);gap:6px;}
+  .bar-glass{width:16px;height:34px;border-radius:2px 2px 6px 6px;flex-shrink:0;position:relative;}
+  .bar-glass::after{content:"";position:absolute;top:-4px;left:0;right:0;height:6px;background:#fff3d6;border-radius:3px 3px 0 0;opacity:.9;}
+  .bar-glass.g1{background:#e8a020;}
+  .bar-glass.g2{background:#7a2c10;}
+  .bar-glass.g3{background:#c96a1c;}
+  .mockup--bar .mockup-copy{color:#ffe6bf;}
+  .mockup--bar .mockup-copy b{color:#fff;}
+
+  .mockup--it .mockup-body{background:linear-gradient(135deg,#150f2e,#341a66);align-items:flex-end;padding-bottom:10px;}
   .code-lines{
-    position:absolute;inset:0;z-index:0;margin:0;padding:10px 14px;
-    font-family:Consolas,'SFMono-Regular',monospace;font-size:9px;line-height:1.5;
+    position:absolute;inset:0;z-index:0;margin:0;padding:8px 12px;
+    font-family:Consolas,'SFMono-Regular',monospace;font-size:8px;line-height:1.5;
     color:#a08ce8;opacity:.5;white-space:pre;overflow:hidden;
   }
   .mockup--it .mockup-body::after{
@@ -166,18 +175,23 @@
   .mockup-copy.light{position:relative;z-index:2;color:#fff;}
   .mockup-copy.light b{color:#fff;}
 
-  .mockup--shop .mockup-body{background:#fbfaf7;gap:10px;padding:12px;}
-  .shop-item{flex:1;text-align:center;font-size:10px;}
-  .shop-item b{display:block;font-family:'Unbounded',sans-serif;font-size:9px;margin:6px 0 2px;letter-spacing:.02em;color:var(--ink);}
-  .shop-item i{font-style:normal;color:var(--muted);font-weight:600;}
-  .swatch{display:block;width:100%;height:42px;border-radius:8px;}
+  .mockup--shop .mockup-body{background:#fbfaf7;gap:8px;padding:10px;align-items:flex-start;}
+  .shop-item{flex:1;text-align:center;font-size:9px;position:relative;}
+  .shop-item .heart{position:absolute;top:2px;right:2px;font-size:8px;opacity:.4;}
+  .shop-item b{display:block;font-family:'Unbounded',sans-serif;font-size:8px;margin:4px 0 1px;letter-spacing:.02em;color:var(--ink);}
+  .shop-item i{font-style:normal;color:var(--muted);font-weight:600;display:block;}
+  .shop-item .tag{display:block;color:var(--orange);font-weight:700;font-size:7.5px;margin-top:2px;}
+  .swatch{display:block;width:100%;height:36px;border-radius:6px;}
   .swatch-1{background:linear-gradient(160deg,#7a1530,#c23a5c);}
   .swatch-2{background:linear-gradient(160deg,#1c1c1c,#3c3c3c);}
-  .swatch-3{background:linear-gradient(160deg,#e7ddc9,#c9b98f);}
 
   @media(max-width:900px){
     .p-hero--split{grid-template-columns:1fr;}
-    .mockup{min-height:100px;}
+    .hero-right{grid-template-columns:1fr 1fr;}
+    .mockup{min-height:110px;}
+  }
+  @media(max-width:560px){
+    .hero-right{grid-template-columns:1fr;}
   }
   .p-tall{grid-column:3/4;grid-row:1/3;background:linear-gradient(160deg,#1b1730,#3a2e78 55%,#6d3bf2);}
   .p-c3{grid-column:2/3;grid-row:3/4;background:linear-gradient(160deg,#8a1730,#e8365f);}
@@ -363,9 +377,17 @@
           <div class="hero-left">
             <span class="mono">01 — КЕЙСЫ</span>
             <h3 class="hero-title">Наши<br>проекты</h3>
-            <p class="hero-sub">Три живых примера из портфолио — от знакомств до энтерпрайз-инфраструктуры.</p>
+            <p class="hero-sub">Четыре живых примера из портфолио — от бара до энтерпрайз-инфраструктуры.</p>
           </div>
           <div class="hero-right">
+
+            <div class="mockup mockup--bar">
+              <div class="mockup-bar"><i></i><i></i><i></i><span>hopcraft.bar</span></div>
+              <div class="mockup-body">
+                <span class="bar-glass g1"></span><span class="bar-glass g2"></span><span class="bar-glass g3"></span>
+                <div class="mockup-copy"><b>Hopcraft</b>Каталог крафтового пива</div>
+              </div>
+            </div>
 
             <div class="mockup mockup--dating">
               <div class="mockup-bar"><i></i><i></i><i></i><span>lumora.love</span></div>
@@ -405,9 +427,18 @@ kubectl rollout status deploy/api</pre>
             <div class="mockup mockup--shop">
               <div class="mockup-bar"><i></i><i></i><i></i><span>rosa-line.store</span></div>
               <div class="mockup-body shop-body">
-                <div class="shop-item"><span class="swatch swatch-1"></span><b>Rosa Line</b><i>Платье шёлковое</i></div>
-                <div class="shop-item"><span class="swatch swatch-2"></span><b>Noir Atelier</b><i>Пальто шерстяное</i></div>
-                <div class="shop-item"><span class="swatch swatch-3"></span><b>Maison Vel</b><i>Блуза шёлковая</i></div>
+                <div class="shop-item">
+                  <span class="heart">♥</span>
+                  <span class="swatch swatch-1"></span>
+                  <b>Rosa Line</b><i>Платье шёлковое</i>
+                  <span class="tag">−30% · летние скидки</span>
+                </div>
+                <div class="shop-item">
+                  <span class="heart">♥</span>
+                  <span class="swatch swatch-2"></span>
+                  <b>Noir Atelier</b><i>Пальто шерстяное</i>
+                  <span class="tag">−30% · летние скидки</span>
+                </div>
               </div>
             </div>
 
