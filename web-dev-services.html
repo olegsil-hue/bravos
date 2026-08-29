@@ -124,6 +124,61 @@
   .p-card .p-desc{font-size:13px;line-height:1.5;font-weight:500;opacity:.85;max-width:34ch;}
 
   .p-hero{grid-column:1/3;grid-row:1/3;background:linear-gradient(150deg,#123b32,#0c6b52 60%,#d8c48a);}
+
+  /* hero card: left title / right stacked site-mockups */
+  .p-hero--split{
+    background:#fff;color:var(--ink);
+    display:grid;grid-template-columns:1fr 1.3fr;gap:26px;
+    padding:30px;align-items:stretch;
+  }
+  .p-hero--split::before{content:none;}
+  .p-hero--split .mono{position:static;opacity:1;display:block;margin-bottom:16px;color:var(--purple-deep);}
+  .hero-left{display:flex;flex-direction:column;justify-content:center;}
+  .hero-title{font-size:clamp(28px,3.2vw,42px);line-height:.96;margin-bottom:14px;}
+  .hero-sub{font-size:13.5px;color:var(--muted);font-weight:600;line-height:1.55;max-width:26ch;}
+
+  .hero-right{display:flex;flex-direction:column;gap:12px;min-height:0;}
+  .mockup{
+    flex:1;border-radius:14px;overflow:hidden;border:1px solid var(--line);
+    display:flex;flex-direction:column;
+    box-shadow:0 10px 22px -18px rgba(20,10,50,.35);
+  }
+  .mockup-bar{display:flex;align-items:center;gap:6px;padding:7px 12px;background:#efece4;border-bottom:1px solid var(--line);flex-shrink:0;}
+  .mockup-bar i{width:7px;height:7px;border-radius:50%;background:#d8d3c4;}
+  .mockup-bar span{margin-left:8px;font-size:10px;color:var(--muted);font-weight:700;letter-spacing:.02em;}
+  .mockup-body{flex:1;display:flex;align-items:center;gap:14px;padding:10px 16px;position:relative;overflow:hidden;}
+
+  .mockup--dating .mockup-body{background:linear-gradient(135deg,#ffe3ec,#ffc9dd);}
+  .avatar{width:44px;height:44px;flex-shrink:0;}
+  .mockup-copy{font-size:12px;font-weight:600;color:#5c1533;line-height:1.4;}
+  .mockup-copy b{display:block;font-family:'Unbounded',sans-serif;font-size:13px;text-transform:uppercase;margin-bottom:2px;}
+
+  .mockup--it .mockup-body{background:linear-gradient(135deg,#150f2e,#341a66);align-items:flex-end;padding-bottom:12px;}
+  .code-lines{
+    position:absolute;inset:0;z-index:0;margin:0;padding:10px 14px;
+    font-family:Consolas,'SFMono-Regular',monospace;font-size:9px;line-height:1.5;
+    color:#a08ce8;opacity:.5;white-space:pre;overflow:hidden;
+  }
+  .mockup--it .mockup-body::after{
+    content:"";position:absolute;inset:0;z-index:1;
+    background:linear-gradient(0deg, rgba(10,6,30,.92) 0%, rgba(10,6,30,.55) 50%, rgba(10,6,30,.1) 78%);
+  }
+  .mockup-copy.light{position:relative;z-index:2;color:#fff;}
+  .mockup-copy.light b{color:#fff;}
+
+  .mockup--shop .mockup-body{background:#fbfaf7;gap:10px;padding:12px;}
+  .shop-item{flex:1;text-align:center;font-size:10px;}
+  .shop-item b{display:block;font-family:'Unbounded',sans-serif;font-size:9px;margin:6px 0 2px;letter-spacing:.02em;color:var(--ink);}
+  .shop-item i{font-style:normal;color:var(--muted);font-weight:600;}
+  .swatch{display:block;width:100%;height:42px;border-radius:8px;}
+  .swatch-1{background:linear-gradient(160deg,#7a1530,#c23a5c);}
+  .swatch-2{background:linear-gradient(160deg,#1c1c1c,#3c3c3c);}
+  .swatch-3{background:linear-gradient(160deg,#e7ddc9,#c9b98f);}
+
+  @media(max-width:900px){
+    .p-hero--split{grid-template-columns:1fr;}
+    .mockup{min-height:100px;}
+  }
   .p-tall{grid-column:3/4;grid-row:1/3;background:linear-gradient(160deg,#1b1730,#3a2e78 55%,#6d3bf2);}
   .p-c3{grid-column:2/3;grid-row:3/4;background:linear-gradient(160deg,#8a1730,#e8365f);}
   .p-c4{grid-column:3/4;grid-row:3/4;background:linear-gradient(160deg,#0d3d5c,#1c8fb0);}
@@ -141,6 +196,7 @@
     .portfolio-board{grid-template-columns:1fr;grid-template-rows:none;}
     .p-hero,.p-tall,.p-c3,.p-c4,.tagline-cell{grid-column:auto;grid-row:auto;}
     .p-hero,.p-tall{height:280px;}
+    .p-hero--split{height:auto;}
     .p-c3,.p-c4{height:220px;}
     .tagline-cell{padding:28px 4px;}
   }
@@ -303,10 +359,59 @@
       </div>
 
       <div class="portfolio-board">
-        <article class="p-card p-hero">
-          <span class="mono">01 — E-COMMERCE</span>
-          <div class="p-title">North Brew · Online Academy 2.0</div>
-          <div class="p-desc">Образовательная платформа для сотрудников HoReCa: интерактивные курсы, сертификация, геймификация обучения.</div>
+        <article class="p-card p-hero p-hero--split">
+          <div class="hero-left">
+            <span class="mono">01 — КЕЙСЫ</span>
+            <h3 class="hero-title">Наши<br>проекты</h3>
+            <p class="hero-sub">Три живых примера из портфолио — от знакомств до энтерпрайз-инфраструктуры.</p>
+          </div>
+          <div class="hero-right">
+
+            <div class="mockup mockup--dating">
+              <div class="mockup-bar"><i></i><i></i><i></i><span>lumora.love</span></div>
+              <div class="mockup-body">
+                <svg class="avatar" viewBox="0 0 60 60" aria-hidden="true">
+                  <circle cx="30" cy="30" r="30" fill="#d94a76"/>
+                  <path d="M30 44c9 0 16-3 16-9v-3c0-9-7-17-16-17S14 23 14 32v3c0 6 7 9 16 9z" fill="#ffd7c2"/>
+                  <path d="M14 30c0-11 8-19 16-19s16 8 16 19c-4-4-9-3-16-3s-12-1-16 3z" fill="#3a1220"/>
+                  <circle cx="24" cy="30" r="2" fill="#3a1220"/><circle cx="36" cy="30" r="2" fill="#3a1220"/>
+                  <path d="M25 37c2 2 8 2 10 0" stroke="#c2694a" stroke-width="2" stroke-linecap="round" fill="none"/>
+                </svg>
+                <div class="mockup-copy"><b>Lumora</b>Сайт знакомств нового поколения</div>
+              </div>
+            </div>
+
+            <div class="mockup mockup--it">
+              <div class="mockup-bar"><i></i><i></i><i></i><span>nexora.dev</span></div>
+              <div class="mockup-body code-bg">
+                <pre class="code-lines">function quicksort(a, lo=0, hi=a.length-1){
+  if (lo >= hi) return;
+  const p = partition(a, lo, hi);
+  quicksort(a, lo, p - 1);
+  quicksort(a, p + 1, hi);
+}
+class LoadBalancer {
+  route(req){
+    const node = this.pool.next();
+    return node.forward(req);
+  }
+}
+docker compose up -d --build
+kubectl rollout status deploy/api</pre>
+                <div class="mockup-copy light"><b>Nexora Cloud</b>Сайт IT-компании · DevOps под ключ</div>
+              </div>
+            </div>
+
+            <div class="mockup mockup--shop">
+              <div class="mockup-bar"><i></i><i></i><i></i><span>rosa-line.store</span></div>
+              <div class="mockup-body shop-body">
+                <div class="shop-item"><span class="swatch swatch-1"></span><b>Rosa Line</b><i>Платье шёлковое</i></div>
+                <div class="shop-item"><span class="swatch swatch-2"></span><b>Noir Atelier</b><i>Пальто шерстяное</i></div>
+                <div class="shop-item"><span class="swatch swatch-3"></span><b>Maison Vel</b><i>Блуза шёлковая</i></div>
+              </div>
+            </div>
+
+          </div>
         </article>
 
         <article class="p-card p-tall">
