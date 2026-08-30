@@ -716,28 +716,38 @@ function setPendingDivisionStatus(id, status) {
   db.prepare('UPDATE pending_divisions SET status = ? WHERE id = ?').run(status, id);
 }
 
-// --- Настройки (пока только время автозапуска опроса) ---
+// --- Настройки опроса (время автозапуска + текст вопроса) ---
 // Переиспользуем schema_meta (key-value), отдельная таблица не нужна.
 // day: 1=Пн..7=Вс (как в cron), time: 'HH:MM'. Дефолт — текущее
-// поведение (понедельник 09:00), если ничего не сохранено.
-const DEFAULT_POLL_SETTINGS = { pollDayOfWeek: 1, pollTime: '09:00' };
+// поведение (понедельник 09:00, стандартный текст), если ничего не
+// сохранено. Варианты ответов («Буду»/«Не смогу») намеренно не
+// настраиваются здесь — код разбора голосов (poll_answer) жёстко завязан
+// на их порядок (option_ids[0] === 0 → «Буду»).
+const DEFAULT_POLL_SETTINGS = {
+  pollDayOfWeek: 1,
+  pollTime: '09:00',
+  pollQuestion: '⚽ Футбол в среду в 19:00 (до 15 человек)',
+};
 
 function getPollSettings() {
   const day = db.prepare("SELECT value FROM schema_meta WHERE key = 'poll_day_of_week'").get();
   const time = db.prepare("SELECT value FROM schema_meta WHERE key = 'poll_time'").get();
+  const question = db.prepare("SELECT value FROM schema_meta WHERE key = 'poll_question'").get();
   return {
     pollDayOfWeek: day ? Number(day.value) : DEFAULT_POLL_SETTINGS.pollDayOfWeek,
     pollTime: time ? time.value : DEFAULT_POLL_SETTINGS.pollTime,
+    pollQuestion: question ? question.value : DEFAULT_POLL_SETTINGS.pollQuestion,
   };
 }
 
-function setPollSettings({ pollDayOfWeek, pollTime }) {
+function setPollSettings({ pollDayOfWeek, pollTime, pollQuestion }) {
   const upsert = db.prepare(`
     INSERT INTO schema_meta (key, value) VALUES (@key, @value)
     ON CONFLICT(key) DO UPDATE SET value = excluded.value
   `);
   if (pollDayOfWeek != null) upsert.run({ key: 'poll_day_of_week', value: String(pollDayOfWeek) });
   if (pollTime) upsert.run({ key: 'poll_time', value: pollTime });
+  if (pollQuestion) upsert.run({ key: 'poll_question', value: pollQuestion });
   return getPollSettings();
 }
 

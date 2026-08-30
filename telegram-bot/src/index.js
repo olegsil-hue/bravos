@@ -52,7 +52,6 @@ bot.use(async (ctx, next) => {
   return next();
 });
 
-const POLL_QUESTION = '⚽ Футбол в среду в 19:00 (до 15 человек)';
 const OPT_IN = 'Буду';
 const OPT_OUT = 'Не смогу';
 
@@ -210,9 +209,10 @@ bot.command('set_display_names', async ctx => {
 async function launchPoll() {
   if (!GROUP_CHAT_ID) return null;
   const eventDate = nextWednesday();
+  const { pollQuestion } = db.getPollSettings();
   const message = await bot.telegram.sendPoll(
     GROUP_CHAT_ID,
-    POLL_QUESTION,
+    pollQuestion,
     [OPT_IN, OPT_OUT],
     { is_anonymous: false, allows_multiple_answers: false }
   );

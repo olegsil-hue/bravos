@@ -103,15 +103,18 @@ function startServer() {
   });
 
   app.post('/api/settings', (req, res) => {
-    const { pollDayOfWeek, pollTime } = req.body || {};
+    const { pollDayOfWeek, pollTime, pollQuestion } = req.body || {};
     if (pollDayOfWeek != null && (!Number.isInteger(pollDayOfWeek) || pollDayOfWeek < 1 || pollDayOfWeek > 7)) {
       return res.status(400).json({ error: 'pollDayOfWeek must be an integer 1-7 (1=Пн)' });
     }
     if (pollTime != null && !/^\d{2}:\d{2}$/.test(pollTime)) {
       return res.status(400).json({ error: 'pollTime must be HH:MM' });
     }
+    if (pollQuestion != null && (typeof pollQuestion !== 'string' || !pollQuestion.trim() || pollQuestion.length > 300)) {
+      return res.status(400).json({ error: 'pollQuestion must be a non-empty string up to 300 chars (Telegram limit)' });
+    }
     try {
-      res.json(db.setPollSettings({ pollDayOfWeek, pollTime }));
+      res.json(db.setPollSettings({ pollDayOfWeek, pollTime, pollQuestion: pollQuestion ? pollQuestion.trim() : undefined }));
     } catch (err) {
       console.error('POST /api/settings упал:', err);
       res.status(500).json({ error: 'internal_error' });

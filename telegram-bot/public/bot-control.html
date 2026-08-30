@@ -97,6 +97,12 @@
                 <label>Время</label>
                 <input type="time" id="pollTime" value="09:00">
             </div>
+        </div>
+        <div class="row" style="margin-top:14px;">
+            <div>
+                <label>Текст опроса</label>
+                <input type="text" id="pollQuestion" maxlength="300" placeholder="⚽ Футбол в среду в 19:00 (до 15 человек)">
+            </div>
             <div style="flex:0;">
                 <button class="btn-primary" onclick="saveSettings()">💾 Сохранить</button>
             </div>
@@ -419,6 +425,7 @@ async function loadAll() {
     const settings = await settingsRes.json();
     document.getElementById('pollDay').value = settings.pollDayOfWeek;
     document.getElementById('pollTime').value = settings.pollTime;
+    document.getElementById('pollQuestion').value = settings.pollQuestion;
 
     renderChecklist();
     renderDaySelect();
@@ -441,9 +448,11 @@ async function saveSettings() {
     try {
         const pollDayOfWeek = Number(document.getElementById('pollDay').value);
         const pollTime = document.getElementById('pollTime').value;
+        const pollQuestion = document.getElementById('pollQuestion').value.trim();
+        if (!pollQuestion) throw new Error('Текст опроса не может быть пустым.');
         const res = await fetch('/api/settings', {
             method: 'POST', headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ pollDayOfWeek, pollTime }),
+            body: JSON.stringify({ pollDayOfWeek, pollTime, pollQuestion }),
         });
         if (!res.ok) throw new Error((await res.json()).error || ('HTTP ' + res.status));
         msg.innerHTML = '<div class="msg ok">✓ Сохранено — применится в течение минуты, без перезапуска бота.</div>';
