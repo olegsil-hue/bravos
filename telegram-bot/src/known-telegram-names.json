@@ -1,0 +1,27 @@
+{
+  "_comment": "Сопоставления Telegram username/displayName -> игрок, разобранные вручную из скриншотов реальных опросов (Poll Results) в чате с пользователем. username почти всегда неизвестен (в скриншотах Telegram показывает отображаемое имя, не @handle) — заполнен только displayName. Применяется автоматически при каждом запуске бота (applyKnownTelegramNames в db.js), но НЕ перезаписывает значение, если оно уже задано в базе (например, через /set_usernames или /set_display_names) — админ всегда важнее этого списка. ВНИМАНИЕ: короткое однословное displayName (без фамилии, вроде 'Pavel'/'Igor'/'Andrey') — не гарантированно уникальный идентификатор: у РАЗНЫХ игроков реальный Telegram-аккаунт может называться одинаково. Уже случилось с 'Pavel' (Паша Орлов vs Паша Тренин — см. fixOrlovTreninDisplayNameCollision в db.js) и было исправлено вручную. db.js подстраховывает автопривязку через hasOtherTelegramLink (не перезаписывает уже занятую другим id привязку), но не может предотвратить самый первый неверный матч — при новых коллизиях чинить так же руками.",
+  "mappings": [
+    { "name": "Витинька", "displayName": "Victor" },
+    { "name": "Влад от Игоря", "displayName": "Владислав" },
+    { "name": "Антон Борисов", "displayName": "Антон" },
+    { "name": "Ваня от Клюшина", "displayName": "Иван" },
+    { "name": "Миша от Клюшина", "displayName": "Misha Misha" },
+    { "name": "Женя Клюшин", "displayName": "Evgeny Klyushin" },
+    { "name": "Илья Сыван", "displayName": "Ilia" },
+    { "name": "Андрей Берликов", "displayName": "Andrey" },
+    { "name": "Георгий Вагин", "displayName": "George" },
+    { "name": "Дима Корольков", "displayName": "Dmitry Korolkov_ERS" },
+    { "name": "Алексей Милованович", "displayName": "Mazepino" },
+    { "name": "Миша Фирсков", "displayName": "Firmaxonic" },
+    { "name": "Алексей Зайцев", "displayName": "Alexey Zaycev Eldorado" },
+    { "name": "Паша Вирник", "displayName": "Pavel Virnik" },
+    { "name": "Саша Ли", "displayName": "Alexander Lee Huawei" },
+    { "name": "Дима Князев", "displayName": "Дмитрий" },
+    { "name": "Паша Пахомов", "displayName": "Pavel Pakhomov" },
+    { "name": "Максим Савиола", "displayName": "Максим Савиола" },
+    { "name": "Олег Иохин", "displayName": "Олег И. Футбол" },
+    { "name": "Миша Комков", "displayName": "Mikhail Komkov" },
+    { "name": "Игорь Еремеев", "displayName": "Igor" },
+    { "name": "Петр Звенигородский", "displayName": "Petr Zvenigorodskiy" }
+  ]
+}

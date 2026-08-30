@@ -1,0 +1,275 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Football Heroes — Как это работает</title>
+<style>
+    :root {
+        --bg-0: #050b1a;
+        --bg-1: #0a1530;
+        --card: #0f1c3f;
+        --card-2: #13234c;
+        --border: rgba(212, 175, 55, 0.22);
+        --border-soft: rgba(255, 255, 255, 0.08);
+        --gold: #d4af37;
+        --gold-bright: #f4d35e;
+        --text: #eef1f8;
+        --text-dim: #8a93ab;
+    }
+    * { box-sizing: border-box; }
+    html, body {
+        margin: 0; padding: 0;
+        background: radial-gradient(ellipse at top, var(--bg-1) 0%, var(--bg-0) 60%);
+        color: var(--text);
+        font-family: 'Segoe UI', Roboto, -apple-system, BlinkMacSystemFont, Arial, sans-serif;
+        min-height: 100vh;
+        -webkit-font-smoothing: antialiased;
+    }
+    .wrap { max-width: 760px; margin: 0 auto; padding: 0 0 60px; }
+
+    .hero {
+        position: relative;
+        padding: 34px 20px 22px;
+        text-align: center;
+        background: linear-gradient(180deg, rgba(212,175,55,0.10) 0%, transparent 70%),
+                    radial-gradient(ellipse at 50% -20%, rgba(212,175,55,0.18), transparent 55%);
+        border-bottom: 1px solid var(--border);
+    }
+    .crest { font-size: 40px; line-height: 1; margin-bottom: 6px; filter: drop-shadow(0 0 14px rgba(212,175,55,0.5)); }
+    .brand {
+        font-size: 24px; font-weight: 900; letter-spacing: 2px; text-transform: uppercase;
+        background: linear-gradient(180deg, #fff 0%, var(--gold-bright) 55%, var(--gold) 100%);
+        -webkit-background-clip: text; background-clip: text; color: transparent;
+        margin: 0;
+    }
+    .tagline { margin-top: 6px; font-size: 12px; letter-spacing: 2px; text-transform: uppercase; color: var(--text-dim); font-weight: 600; }
+    .back-link { display: inline-block; margin-top: 14px; color: var(--gold-bright); text-decoration: none; font-size: 13px; font-weight: 700; }
+
+    .toc {
+        margin: 20px 14px;
+        background: var(--card);
+        border: 1px solid var(--border-soft);
+        border-radius: 12px;
+        padding: 16px 18px;
+    }
+    .toc-title { font-size: 11px; letter-spacing: 1.5px; text-transform: uppercase; color: var(--gold-bright); font-weight: 700; margin-bottom: 10px; }
+    .toc a {
+        display: block; color: var(--text-dim); text-decoration: none; font-size: 14px; padding: 5px 0;
+    }
+    .toc a:hover { color: var(--text); }
+
+    section {
+        margin: 18px 14px;
+        background: var(--card);
+        border: 1px solid var(--border-soft);
+        border-radius: 12px;
+        padding: 20px 20px 22px;
+        scroll-margin-top: 14px;
+    }
+    section h2 {
+        margin: 0 0 12px;
+        font-size: 17px;
+        color: var(--gold-bright);
+        display: flex; align-items: center; gap: 8px;
+    }
+    section p { line-height: 1.65; color: var(--text); margin: 0 0 12px; font-size: 14.5px; }
+    section p:last-child { margin-bottom: 0; }
+    section ul, section ol { margin: 0 0 12px; padding-left: 20px; line-height: 1.7; color: var(--text); font-size: 14.5px; }
+    section li { margin-bottom: 4px; }
+    section strong { color: var(--gold-bright); }
+
+    .step-list { list-style: none; padding: 0; margin: 0; counter-reset: step; }
+    .step-list li {
+        counter-increment: step;
+        position: relative;
+        padding: 6px 0 6px 34px;
+        margin-bottom: 8px;
+    }
+    .step-list li::before {
+        content: counter(step);
+        position: absolute; left: 0; top: 4px;
+        width: 24px; height: 24px;
+        background: var(--card-2);
+        border: 1px solid var(--border);
+        color: var(--gold-bright);
+        border-radius: 50%;
+        display: flex; align-items: center; justify-content: center;
+        font-size: 12px; font-weight: 800;
+    }
+
+    .card-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 10px; margin: 4px 0 12px; }
+    .color-chip {
+        border-radius: 8px;
+        padding: 10px 12px;
+        font-weight: 800;
+        font-size: 13px;
+        text-align: center;
+        border: 1px solid var(--border-soft);
+    }
+    .color-chip.red { background: rgba(198,40,40,0.25); color: #ff8a80; border-color: rgba(198,40,40,0.4); }
+    .color-chip.lime { background: rgba(174,234,0,0.15); color: #d4ff5a; border-color: rgba(174,234,0,0.35); }
+    .color-chip.white { background: rgba(255,255,255,0.08); color: #fff; border-color: rgba(255,255,255,0.3); }
+
+    table.cmd-table { width: 100%; border-collapse: collapse; font-size: 13.5px; margin-top: 6px; }
+    table.cmd-table th {
+        text-align: left; color: var(--gold-bright); font-size: 10.5px; letter-spacing: 1px; text-transform: uppercase;
+        padding: 8px 8px; border-bottom: 1px solid var(--border);
+    }
+    table.cmd-table td { padding: 8px 8px; border-bottom: 1px solid var(--border-soft); vertical-align: top; }
+    table.cmd-table code { color: var(--gold-bright); font-family: 'SF Mono', Consolas, monospace; font-size: 12.5px; white-space: nowrap; }
+    .who-badge {
+        display: inline-block; font-size: 9.5px; font-weight: 800; letter-spacing: .5px;
+        padding: 2px 7px; border-radius: 10px; text-transform: uppercase;
+    }
+    .who-badge.admin { background: rgba(212,175,55,0.2); color: var(--gold-bright); }
+    .who-badge.all { background: rgba(46,204,113,0.18); color: #6fe89a; }
+
+    .prompt-box {
+        background: var(--card-2);
+        border: 1px solid var(--border);
+        border-radius: 10px;
+        padding: 12px 14px;
+        font-family: 'SF Mono', Consolas, monospace;
+        font-size: 11.5px;
+        line-height: 1.6;
+        color: var(--text-dim);
+        margin-top: 10px;
+    }
+    .prompt-box code { color: var(--text); }
+
+    footer { text-align: center; color: var(--text-dim); font-size: 11px; letter-spacing: 1px; padding: 30px 20px 10px; }
+
+    ::-webkit-scrollbar { height: 6px; width: 6px; }
+    ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+</style>
+</head>
+<body>
+
+<div class="wrap">
+    <div class="hero">
+        <div class="crest">⚽</div>
+        <h1 class="brand">Football Heroes</h1>
+        <div class="tagline">Как устроен бот и весь сервис</div>
+        <a class="back-link" href="/rating.html">← Назад к рейтингу</a>
+    </div>
+
+    <div class="toc">
+        <div class="toc-title">Содержание</div>
+        <a href="#week">📅 Недельный цикл</a>
+        <a href="#link">🔗 Как бот узнаёт, кто вы</a>
+        <a href="#divide">⚡ Деление на команды</a>
+        <a href="#record">🥅 Запись игр</a>
+        <a href="#rating">🏆 Формула рейтинга</a>
+        <a href="#photo">📷 Фото игроков</a>
+        <a href="#data">🗄️ Общая база данных</a>
+        <a href="#commands">⌨️ Команды бота</a>
+    </div>
+
+    <section id="week">
+        <h2>📅 Недельный цикл</h2>
+        <p>Бот сам ведёт игровую неделю по расписанию, без ручного запуска на каждом шаге:</p>
+        <ul>
+            <li><strong>Понедельник, 09:00</strong> — бот сам публикует в группе опрос «Буду / Не смогу» на ближайшую среду (если открытого опроса ещё нет).</li>
+            <li><strong>Среда, 12:00</strong> — опрос закрывается, бот считает состав (балансировка по рейтингу и позициям) и присылает его администратору на подтверждение.</li>
+            <li><strong>Среда, 18:00</strong> — если состав подтверждён, бот открывает запись игр в группе.</li>
+        </ul>
+        <p>Любой шаг можно запустить и вручную, не дожидаясь расписания — см. раздел «Команды бота».</p>
+    </section>
+
+    <section id="link">
+        <h2>🔗 Как бот узнаёт, кто вы</h2>
+        <p>Чтобы учитывать голос в делении и показывать ваше фото на странице рейтинга, боту нужно связать ваш Telegram-аккаунт с именем в списке игроков. Это происходит одним из способов:</p>
+        <ol>
+            <li><strong>Само собой</strong> — как только вы хоть раз что-то делаете в чате с ботом (голосуете в опросе, нажимаете любую кнопку, пишете любую команду), он сверяет ваш Telegram username или отображаемое имя со списком игроков и связывает автоматически.</li>
+            <li><strong>Через администраторов группы</strong> — при каждом запуске бот сам подтягивает список админов группы и связывает совпавших, ещё до того, как они что-то напишут.</li>
+            <li><strong>Вручную</strong> — команда <code>/register Имя Фамилия</code> (как в списке игроков), если автоматика не сработала (например, отображаемое имя в Telegram не совпадает ни с чем в списке).</li>
+        </ol>
+        <p>Если два разных человека совпадают по одинаковому отображаемому имени в Telegram — бот не перезаписывает уже существующую привязку молча, а требует ручного разбора через <code>/register</code>, чтобы не перепутать фото/статистику.</p>
+    </section>
+
+    <section id="divide">
+        <h2>⚡ Деление на команды</h2>
+        <p>Состав делится алгоритмом балансировки: сначала распределяются вратари, затем игроки по амплуа (защита/полузащита/атака) так, чтобы суммарный рейтинг команд был максимально близким, с точечной подстройкой обменом игроков в конце.</p>
+        <p>Цвета манишек — не рандом, а правило:</p>
+        <div class="card-grid">
+            <div class="color-chip red">🔴 Красные</div>
+            <div class="color-chip lime">🟢 Салатовые</div>
+            <div class="color-chip white">⚪ Белые</div>
+        </div>
+        <p>Команда, куда попадает <strong>Олег Сильченко</strong>, всегда получает белый цвет — независимо от того, как её пронумеровал алгоритм. Остальным двум цвета достаются по порядку.</p>
+    </section>
+
+    <section id="record">
+        <h2>🥅 Запись игр</h2>
+        <p>Запись мини-игр в реальном времени ведётся прямо в группе кнопками:</p>
+        <ol>
+            <li><strong>/start_game</strong> открывает запись — если команд три, сначала выбирается стартовая пара (кто с кем играет первую игру, третья команда ждёт).</li>
+            <li>После каждого гола — кнопка ⚽, затем выбор автора гола и (опционально) того, кто отдал передачу.</li>
+            <li>Действует правило <strong>«победитель остаётся»</strong>: выигравшая команда играет следующую игру против той, что отдыхала, проигравшая уступает место.</li>
+            <li><strong>/end_day</strong> завершает день и присылает в группу три готовые картинки с результатами — итоговую таблицу, личную статистику дня и (если применимо) сводку по сериям пенальти.</li>
+        </ol>
+        <p>Записывать игры и завершать день может <strong>любой участник группы</strong>, не только администратор — не нужно ждать, пока кто-то конкретный возьмёт телефон.</p>
+    </section>
+
+    <section id="rating">
+        <h2>🏆 Формула рейтинга</h2>
+        <p>У каждого игрока в базе — четыре навыка от 0 до 10: Вратарь, Защита, Атака, Выносливость. Атака весит больше остальных, потому что сильнее всего влияет на результат мини-игр:</p>
+        <div class="prompt-box">
+            <code>Рейтинг = 0.6 × Атака + 0.4 × (Вратарь + Защита + Выносливость) / 3</code>
+        </div>
+        <p style="margin-top:12px;">Это число дальше на 5% сдвигается в сторону реальной результативности — сколько игрок реально забивает и отдаёт передач за игру, а не только «бумажный» навык:</p>
+        <div class="prompt-box">
+            <code>Итоговый рейтинг = Базовый × 0.95 + min(10, (Голы + Передачи) / Игры × 2) × 0.05</code>
+        </div>
+        <p style="margin-top:12px;">Если у игрока ещё нет сыгранных игр — используется только базовая часть, без поправки на результативность.</p>
+    </section>
+
+    <section id="photo">
+        <h2>📷 Фото игроков</h2>
+        <p>На странице рейтинга у игроков может быть фото — оно берётся одним из двух способов:</p>
+        <ul>
+            <li><strong>Из Telegram</strong> — автоматически, если игрок привязан к своему аккаунту (см. раздел «Как бот узнаёт, кто вы»). Бот не может получить фото человека, который никогда не взаимодействовал с ним — это ограничение самого Telegram, а не бота.</li>
+            <li><strong>Загружено вручную</strong> — в веб-приложении, на вкладке «Игроки», клик по кружку-аватарке открывает выбор файла. Ручная загрузка работает для любого игрока сразу и имеет приоритет над фото из Telegram.</li>
+        </ul>
+    </section>
+
+    <section id="data">
+        <h2>🗄️ Общая база данных</h2>
+        <p>Бот и оба сайта — эта страница с рейтингом и рабочее веб-приложение — читают и пишут <strong>одну и ту же живую базу данных</strong>. Это не копии друг друга и не снимок на момент публикации: результат, записанный ботом во время игры, в ту же секунду виден на этой странице, и наоборот — правки в веб-приложении сразу доступны боту.</p>
+    </section>
+
+    <section id="commands">
+        <h2>⌨️ Команды бота</h2>
+        <p>Основные команды, доступные всем участникам группы:</p>
+        <table class="cmd-table">
+            <thead><tr><th>Команда</th><th>Что делает</th><th>Кто</th></tr></thead>
+            <tbody>
+                <tr><td><code>/register Имя Фамилия</code></td><td>Привязать себя к игроку вручную</td><td><span class="who-badge all">все</span></td></tr>
+                <tr><td><code>/players</code></td><td>Список игроков и их Telegram-привязки</td><td><span class="who-badge all">все</span></td></tr>
+                <tr><td><code>/status</code></td><td>Сколько голосов в текущем опросе</td><td><span class="who-badge all">все</span></td></tr>
+                <tr><td><code>/start_game</code></td><td>Открыть запись игр на утверждённый день</td><td><span class="who-badge all">все</span></td></tr>
+                <tr><td><code>/end_day</code></td><td>Завершить день, прислать картинки с итогами</td><td><span class="who-badge all">все</span></td></tr>
+                <tr><td><code>/days</code></td><td>Список игровых дней с id и статусом</td><td><span class="who-badge all">все</span></td></tr>
+            </tbody>
+        </table>
+        <p style="margin-top:16px;">Административные (запуск опроса вручную, ручное деление, исправления):</p>
+        <table class="cmd-table">
+            <thead><tr><th>Команда</th><th>Что делает</th><th>Кто</th></tr></thead>
+            <tbody>
+                <tr><td><code>/poll</code></td><td>Запустить опрос прямо сейчас, не дожидаясь понедельника</td><td><span class="who-badge admin">админ</span></td></tr>
+                <tr><td><code>/cancel_poll</code></td><td>Закрыть опрос и удалить его сообщение из группы</td><td><span class="who-badge admin">админ</span></td></tr>
+                <tr><td><code>/divide_now</code></td><td>Посчитать деление по текущему опросу прямо сейчас</td><td><span class="who-badge admin">админ</span></td></tr>
+                <tr><td><code>/manual_divide</code></td><td>Занести состав «Буду» вручную, без опроса бота</td><td><span class="who-badge admin">админ</span></td></tr>
+                <tr><td><code>/approve_day</code></td><td>Утвердить состав дня, чтобы стал доступен /start_game</td><td><span class="who-badge admin">админ</span></td></tr>
+                <tr><td><code>/delete_day</code></td><td>Удалить игровой день (например, тестовый)</td><td><span class="who-badge admin">админ</span></td></tr>
+                <tr><td><code>/set_usernames</code>, <code>/set_display_names</code></td><td>Массово задать Telegram-привязки игрокам</td><td><span class="who-badge admin">админ</span></td></tr>
+            </tbody>
+        </table>
+    </section>
+
+    <footer>FOOTBALL HEROES</footer>
+</div>
+
+</body>
+</html>

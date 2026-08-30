@@ -1,0 +1,29 @@
+{
+  "_comment": "Точечные патчи протокола мини-игр (matches) для уже существующих игровых дней — не трогают teams_json (составы уже верно сохранены через веб-приложение). Применяется на каждом запуске (applyMatchLogPatches в db.js) — ВСЕГДА перезаписывает matches_json для дней из этого файла (авторитетные подправленные данные, как known-roster-factor-overrides.json), поэтому сюда можно вносить дальнейшие точечные правки. Использовать только для дней, чей протокол целиком ведётся из чат-лога — не для дней, которые реально пишутся вживую через /start_game.",
+  "patches": [
+    {
+      "id": 1787555219936,
+      "date": "2026-08-26",
+      "note": "Записано из чат-лога пользователя (Telegram), с ручными правками: игра 4 — гол Влада от Игоря вместо Олега Сильченко (в этой игре Влад выходил вместо Олега); игра 5 — гол Олега Сильченко/пас Паши Вирника (было наоборот); игра 14 исключена (реально играли команды 1 и 3, а не 2 и 3, счёт неизвестен); две переигровки 2vs3 после ничьей (изначально записанные как игры 17 и 18) убраны целиком — по факту после ничьей команда 3 выбыла и сразу играла пара 2vs1; игра 19 (изначальная нумерация) — гол Влада от Игоря вместо Максима Савиолы; игра 15 в новой нумерации (после исключения фантомных 17/18) — гол Паши Вирника/пас Жени Клюшина (было наоборот).",
+      "matches": [
+        { "teamAIdx": 0, "teamBIdx": 1, "scoreA": 2, "scoreB": 0, "scorersA": [{ "name": "Максим Савиола", "goals": 1, "assist": "Илья Сыван" }, { "name": "Илья Сыван", "goals": 1, "assist": "Ваня от Клюшина" }], "scorersB": [] },
+        { "teamAIdx": 0, "teamBIdx": 2, "scoreA": 2, "scoreB": 0, "scorersA": [{ "name": "Максим Савиола", "goals": 1, "assist": "Илья Сыван" }, { "name": "Илья Сыван", "goals": 1 }], "scorersB": [] },
+        { "teamAIdx": 0, "teamBIdx": 1, "scoreA": 0, "scoreB": 1, "scorersA": [], "scorersB": [{ "name": "Паша Вирник", "goals": 1, "assist": "Миша от Клюшина" }] },
+        { "teamAIdx": 1, "teamBIdx": 2, "scoreA": 2, "scoreB": 1, "scorersA": [{ "name": "Влад от Игоря", "goals": 1 }, { "name": "Паша Вирник", "goals": 1, "assist": "Миша от Клюшина" }], "scorersB": [{ "name": "Антон Борисов", "goals": 1, "assist": "Дима Князев" }] },
+        { "teamAIdx": 1, "teamBIdx": 0, "scoreA": 1, "scoreB": 1, "wonByPenalties": 0, "scorersA": [{ "name": "Олег Сильченко", "goals": 1, "assist": "Паша Вирник" }], "scorersB": [{ "name": "Максим Савиола", "goals": 1, "assist": "Ваня от Клюшина" }] },
+        { "teamAIdx": 0, "teamBIdx": 2, "scoreA": 0, "scoreB": 1, "scorersA": [], "scorersB": [{ "name": "Дима Князев", "goals": 1 }] },
+        { "teamAIdx": 2, "teamBIdx": 1, "scoreA": 0, "scoreB": 2, "scorersA": [], "scorersB": [{ "name": "Паша Вирник", "goals": 1, "assist": "Женя Клюшин" }, { "name": "Паша Вирник", "goals": 1, "assist": "Женя Клюшин" }] },
+        { "teamAIdx": 1, "teamBIdx": 0, "scoreA": 0, "scoreB": 2, "scorersA": [], "scorersB": [{ "name": "Илья Сыван", "goals": 1 }, { "name": "Илья Сыван", "goals": 1 }] },
+        { "teamAIdx": 0, "teamBIdx": 2, "scoreA": 0, "scoreB": 0, "wonByPenalties": 2, "scorersA": [], "scorersB": [] },
+        { "teamAIdx": 2, "teamBIdx": 1, "scoreA": 2, "scoreB": 0, "scorersA": [{ "name": "Антон Борисов", "goals": 1, "assist": "Дима Князев" }, { "name": "Дима Князев", "goals": 1, "assist": "Георгий Вагин" }], "scorersB": [] },
+        { "teamAIdx": 2, "teamBIdx": 0, "scoreA": 1, "scoreB": 2, "scorersA": [{ "name": "Дима Князев", "goals": 1, "assist": "Георгий Вагин" }], "scorersB": [{ "name": "Ваня от Клюшина", "goals": 1, "assist": "Максим Савиола" }, { "name": "Илья Сыван", "goals": 1 }] },
+        { "teamAIdx": 0, "teamBIdx": 1, "scoreA": 1, "scoreB": 2, "scorersA": [{ "name": "Максим Савиола", "goals": 1, "assist": "Ваня от Клюшина" }], "scorersB": [{ "name": "Паша Вирник", "goals": 1 }, { "name": "Алексей Зайцев", "goals": 1 }] },
+        { "teamAIdx": 1, "teamBIdx": 2, "scoreA": 1, "scoreB": 1, "scorersA": [{ "name": "Алексей Зайцев", "goals": 1, "assist": "Олег Сильченко" }], "scorersB": [{ "name": "Дима Князев", "goals": 1, "assist": "Паша Орлов" }] },
+        { "teamAIdx": 0, "teamBIdx": 2, "scoreA": 0, "scoreB": 2, "scorersA": [], "scorersB": [{ "name": "Дима Князев", "goals": 1 }, { "name": "Дима Князев", "goals": 1, "assist": "Георгий Вагин" }] },
+        { "teamAIdx": 1, "teamBIdx": 2, "scoreA": 1, "scoreB": 1, "scorersA": [{ "name": "Паша Вирник", "goals": 1, "assist": "Женя Клюшин" }], "scorersB": [{ "name": "Паша Орлов", "goals": 1, "assist": "Антон Борисов" }] },
+        { "teamAIdx": 1, "teamBIdx": 0, "scoreA": 0, "scoreB": 2, "scorersA": [], "scorersB": [{ "name": "Миша Фирсков", "goals": 1 }, { "name": "Влад от Игоря", "goals": 1 }] },
+        { "teamAIdx": 0, "teamBIdx": 2, "scoreA": 1, "scoreB": 0, "scorersA": [{ "name": "Миша Фирсков", "goals": 1 }], "scorersB": [] }
+      ]
+    }
+  ]
+}

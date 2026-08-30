@@ -1,0 +1,711 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Football Heroes — Официальный рейтинг</title>
+<style>
+    :root {
+        --bg-0: #050b1a;
+        --bg-1: #0a1530;
+        --card: #0f1c3f;
+        --card-2: #13234c;
+        --border: rgba(212, 175, 55, 0.22);
+        --border-soft: rgba(255, 255, 255, 0.08);
+        --gold: #d4af37;
+        --gold-bright: #f4d35e;
+        --text: #eef1f8;
+        --text-dim: #8a93ab;
+        --green: #2ecc71;
+        --red: #e74c3c;
+    }
+    * { box-sizing: border-box; }
+    html, body {
+        margin: 0; padding: 0;
+        background: radial-gradient(ellipse at top, var(--bg-1) 0%, var(--bg-0) 60%);
+        color: var(--text);
+        font-family: 'Segoe UI', Roboto, -apple-system, BlinkMacSystemFont, Arial, sans-serif;
+        min-height: 100vh;
+        -webkit-font-smoothing: antialiased;
+    }
+    .wrap { max-width: 900px; margin: 0 auto; padding: 0 0 60px; }
+
+    /* ===== HERO ===== */
+    .hero {
+        position: relative;
+        padding: 38px 20px 26px;
+        text-align: center;
+        background:
+            linear-gradient(180deg, rgba(212,175,55,0.10) 0%, transparent 70%),
+            radial-gradient(ellipse at 50% -20%, rgba(212,175,55,0.18), transparent 55%);
+        border-bottom: 1px solid var(--border);
+        overflow: hidden;
+    }
+    .hero::before, .hero::after {
+        content: '';
+        position: absolute; top: -60px; width: 240px; height: 240px;
+        border-radius: 50%;
+        background: radial-gradient(circle, rgba(212,175,55,0.15), transparent 70%);
+    }
+    .hero::before { left: -80px; }
+    .hero::after { right: -80px; }
+    .crest {
+        font-size: 44px;
+        line-height: 1;
+        margin-bottom: 8px;
+        filter: drop-shadow(0 0 14px rgba(212,175,55,0.5));
+    }
+    .brand {
+        font-size: 30px;
+        font-weight: 900;
+        letter-spacing: 3px;
+        text-transform: uppercase;
+        background: linear-gradient(180deg, #fff 0%, var(--gold-bright) 55%, var(--gold) 100%);
+        -webkit-background-clip: text;
+        background-clip: text;
+        color: transparent;
+        margin: 0;
+    }
+    .tagline {
+        margin-top: 6px;
+        font-size: 12px;
+        letter-spacing: 3px;
+        text-transform: uppercase;
+        color: var(--text-dim);
+        font-weight: 600;
+    }
+
+    /* ===== TABS ===== */
+    .tabs {
+        display: flex;
+        justify-content: flex-start;
+        gap: 4px;
+        padding: 16px 16px 0;
+        position: sticky;
+        top: 0;
+        z-index: 10;
+        background: var(--bg-0);
+        border-bottom: 1px solid var(--border-soft);
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+        scrollbar-width: none;
+    }
+    .tabs::-webkit-scrollbar { display: none; }
+    .tab-btn {
+        appearance: none;
+        border: none;
+        background: transparent;
+        color: var(--text-dim);
+        font-size: 13px;
+        font-weight: 700;
+        letter-spacing: 1.5px;
+        text-transform: uppercase;
+        padding: 12px 18px;
+        flex: 0 0 auto;
+        cursor: pointer;
+        border-bottom: 3px solid transparent;
+        transition: color .15s, border-color .15s;
+        white-space: nowrap;
+    }
+    .tab-btn:hover { color: var(--text); }
+    .tab-btn.active { color: var(--gold-bright); border-color: var(--gold); }
+
+    .panel { display: none; padding: 20px 14px 0; }
+    .panel.active { display: block; }
+
+    /* ===== TABLE ===== */
+    .table-card {
+        background: var(--card);
+        border: 1px solid var(--border-soft);
+        border-radius: 12px;
+        overflow: hidden;
+        margin-bottom: 18px;
+    }
+    table { width: 100%; border-collapse: collapse; font-size: 14px; }
+    thead th {
+        background: var(--card-2);
+        color: var(--gold-bright);
+        font-size: 10.5px;
+        letter-spacing: 0.8px;
+        text-transform: uppercase;
+        font-weight: 700;
+        padding: 12px 5px;
+        text-align: center;
+        border-bottom: 1px solid var(--border);
+        white-space: nowrap;
+    }
+    thead th.left { text-align: left; padding-left: 10px; }
+    tbody td {
+        padding: 10px 5px;
+        text-align: center;
+        border-bottom: 1px solid var(--border-soft);
+        vertical-align: middle;
+    }
+    tbody td.left { padding-left: 10px; }
+    tbody td.left { text-align: left; }
+    tbody tr:last-child td { border-bottom: none; }
+    tbody tr:hover { background: rgba(255,255,255,0.03); }
+    tbody tr.top1 { background: linear-gradient(90deg, rgba(212,175,55,0.14), transparent 70%); }
+    tbody tr.top2 { background: linear-gradient(90deg, rgba(212,175,55,0.08), transparent 70%); }
+    tbody tr.top3 { background: linear-gradient(90deg, rgba(212,175,55,0.05), transparent 70%); }
+
+    .prompt-box {
+        margin: 0 14px 4px;
+        background: var(--card);
+        border: 1px solid var(--border);
+        border-radius: 10px;
+        padding: 12px 14px;
+        font-family: 'SF Mono', 'Cascadia Code', Consolas, monospace;
+        font-size: 11px;
+        line-height: 1.55;
+        color: var(--text-dim);
+    }
+    .prompt-box .prompt-label {
+        color: var(--gold-bright);
+        font-weight: 700;
+        letter-spacing: 1px;
+        text-transform: uppercase;
+        font-size: 9.5px;
+        margin-bottom: 6px;
+        font-family: 'Segoe UI', Roboto, sans-serif;
+    }
+    .prompt-box code { color: var(--text); }
+    footer .prompt-box { margin: 16px auto 0; max-width: 640px; text-align: left; }
+
+    .rank { font-weight: 800; color: var(--text-dim); font-variant-numeric: tabular-nums; }
+    .rank.medal { font-size: 16px; }
+
+    .player-cell { display: flex; align-items: center; gap: 8px; }
+    .avatar-slot {
+        width: 32px; height: 32px; flex: 0 0 32px;
+        border-radius: 50%;
+        overflow: hidden;
+        background: linear-gradient(135deg, #1c2c56, #0f1c3f);
+        border: 1.5px solid var(--border);
+        display: flex; align-items: center; justify-content: center;
+        font-size: 13px; color: var(--text-dim);
+    }
+    .avatar-slot img { width: 100%; height: 100%; object-fit: cover; display: block; }
+    .player-name { font-weight: 700; }
+    .pos-badge {
+        display: inline-block;
+        font-size: 9.5px;
+        font-weight: 800;
+        letter-spacing: 0.5px;
+        color: var(--bg-0);
+        background: var(--gold);
+        border-radius: 4px;
+        padding: 2px 6px;
+        margin-left: 8px;
+        vertical-align: middle;
+    }
+    .rating-value {
+        font-weight: 900;
+        font-size: 16px;
+        font-variant-numeric: tabular-nums;
+        color: var(--gold-bright);
+        text-shadow: 0 0 12px rgba(212,175,55,0.35);
+    }
+    .ga-value { color: var(--text-dim); font-variant-numeric: tabular-nums; }
+    .num { font-variant-numeric: tabular-nums; }
+
+    .section-title {
+        font-size: 12px;
+        letter-spacing: 2px;
+        text-transform: uppercase;
+        color: var(--text-dim);
+        font-weight: 700;
+        margin: 4px 0 10px 4px;
+    }
+
+    .empty-state {
+        text-align: center;
+        color: var(--text-dim);
+        padding: 40px 20px;
+        font-size: 14px;
+    }
+
+    /* ===== GAME DAYS ===== */
+    .day-card {
+        background: var(--card);
+        border: 1px solid var(--border-soft);
+        border-radius: 12px;
+        margin-bottom: 14px;
+        overflow: hidden;
+    }
+    .day-head {
+        display: flex; align-items: center; justify-content: space-between;
+        padding: 12px 16px;
+        background: var(--card-2);
+        border-bottom: 1px solid var(--border);
+    }
+    .day-date { font-weight: 800; font-size: 15px; letter-spacing: 0.5px; }
+    .day-badge {
+        font-size: 9.5px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase;
+        color: var(--text-dim); border: 1px solid var(--border-soft); border-radius: 20px;
+        padding: 3px 9px;
+    }
+    .day-body { padding: 14px 16px; }
+    .standings-table { width: 100%; border-collapse: collapse; font-size: 13px; margin-bottom: 10px; }
+    .standings-table th {
+        color: var(--text-dim); font-size: 10px; letter-spacing: 1px; text-transform: uppercase;
+        padding: 6px 6px; text-align: center; font-weight: 700; border-bottom: 1px solid var(--border-soft);
+    }
+    .standings-table th.left, .standings-table td.left { text-align: left; }
+    .standings-table td { padding: 7px 6px; text-align: center; }
+    .standings-table tr.winner td.left { color: var(--gold-bright); font-weight: 800; }
+    .legacy-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 10px; }
+    .legacy-team {
+        background: var(--card-2);
+        border: 1px solid var(--border-soft);
+        border-radius: 8px;
+        padding: 10px 12px;
+    }
+    .legacy-team.winner { border-color: var(--border); background: rgba(212,175,55,0.06); }
+    .legacy-team-title { font-weight: 800; font-size: 13px; margin-bottom: 6px; }
+    .legacy-row { display: flex; justify-content: space-between; font-size: 12.5px; padding: 2px 0; color: var(--text-dim); }
+    .legacy-row span:first-child { color: var(--text); }
+    .matches-mini { margin-top: 10px; font-size: 12px; color: var(--text-dim); }
+    .matches-mini .row { display: flex; justify-content: space-between; padding: 3px 0; border-bottom: 1px dashed var(--border-soft); }
+    .matches-mini .row:last-child { border-bottom: none; }
+
+    footer {
+        text-align: center;
+        color: var(--text-dim);
+        font-size: 11px;
+        letter-spacing: 1px;
+        padding: 30px 20px 10px;
+    }
+
+    ::-webkit-scrollbar { height: 6px; }
+    ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+
+    @media (max-width: 480px) {
+        .tab-btn { padding: 12px 12px; font-size: 11.5px; letter-spacing: 0.8px; }
+        .brand { font-size: 24px; letter-spacing: 2px; }
+    }
+</style>
+</head>
+<body>
+
+<div class="wrap">
+    <div class="hero">
+        <div class="crest">⚽</div>
+        <h1 class="brand">Football Heroes</h1>
+        <div class="tagline">Официальный рейтинг группы</div>
+    </div>
+
+    <div class="prompt-box" style="margin-top:14px;">
+        <div class="prompt-label">Промпт: как считается рейтинг</div>
+        <code>Рейтинг = 0.6×Атака + 0.4×(Вратарь+Защита+Выносливость)/3, затем на 95% сохраняется, на 5% сдвигается к результативности: min(10, (Голы+Передачи)/Игры×2). Все навыки — целые числа 0–10; результативность учитывается только при наличии сыгранных игр.</code>
+    </div>
+
+    <div class="tabs">
+        <button class="tab-btn active" data-tab="rating" onclick="switchPanel('rating')">🏆 Рейтинг</button>
+        <button class="tab-btn" data-tab="stats" onclick="switchPanel('stats')">📊 Статистика</button>
+        <button class="tab-btn" data-tab="days" onclick="switchPanel('days')">📅 Игровые дни</button>
+    </div>
+
+    <div id="panel-rating" class="panel active">
+        <div id="ratingContainer"><div class="empty-state">Загрузка…</div></div>
+    </div>
+
+    <div id="panel-stats" class="panel">
+        <div id="statsContainer"><div class="empty-state">Загрузка…</div></div>
+    </div>
+
+    <div id="panel-days" class="panel">
+        <div id="daysContainer"><div class="empty-state">Загрузка…</div></div>
+    </div>
+
+    <footer>
+        FOOTBALL HEROES
+        <div class="prompt-box">
+            <div class="prompt-label">Промпт: как считается рейтинг</div>
+            <code>Рейтинг = 0.6×Атака + 0.4×(Вратарь+Защита+Выносливость)/3, затем на 95% сохраняется, на 5% сдвигается к результативности: min(10, (Голы+Передачи)/Игры×2). Все навыки — целые числа 0–10; результативность учитывается только при наличии сыгранных игр.</code>
+        </div>
+        <div style="margin-top:14px;"><a href="/how-it-works.html" style="color:var(--gold-bright);text-decoration:none;font-weight:700;letter-spacing:.5px;">ℹ️ Как устроен бот и весь сервис →</a></div>
+    </footer>
+</div>
+
+<script>
+'use strict';
+
+const ATT_WEIGHT = 0.6;
+const GOALS_ASSISTS_WEIGHT = 0.05;
+
+let roster = [];
+let gameDays = [];
+let gameStatsCache = {};
+
+function playerGoalAssistFactor(name) {
+    const s = gameStatsCache[name];
+    if (!s || !s.games) return null;
+    const perGame = (s.goals + s.assists) / s.games;
+    return Math.min(10, Math.max(0, perGame * 2));
+}
+
+function playerRating(p) {
+    const otherWeight = (1 - ATT_WEIGHT) / 3;
+    const skillRating = p.att * ATT_WEIGHT + (p.gk + p.def + p.end) * otherWeight;
+    const gaFactor = playerGoalAssistFactor(p.name);
+    if (gaFactor === null) return skillRating;
+    return skillRating * (1 - GOALS_ASSISTS_WEIGHT) + gaFactor * GOALS_ASSISTS_WEIGHT;
+}
+
+function computePlayerGameStats() {
+    const stats = {};
+    const bump = (name, goals, assists) => {
+        if (!stats[name]) stats[name] = { goals: 0, assists: 0, games: 0 };
+        stats[name].goals += goals;
+        stats[name].assists += assists;
+        stats[name].games += 1;
+    };
+    gameDays.forEach(day => {
+        if (day.legacy) {
+            (day.legacyStats || []).forEach(team => team.forEach(p => bump(p.name, p.goals, p.assists)));
+        } else if ((day.matches || []).length === 0 && Array.isArray(day.personalStats)) {
+            day.personalStats.forEach(p => bump(p.name, p.goals, p.assists));
+        } else {
+            const seenToday = new Set();
+            const touch = name => {
+                if (!stats[name]) stats[name] = { goals: 0, assists: 0, games: 0 };
+                if (!seenToday.has(name)) { stats[name].games += 1; seenToday.add(name); }
+            };
+            (day.matches || []).forEach(m => {
+                [...(m.scorersA || []), ...(m.scorersB || [])].forEach(s => {
+                    touch(s.name);
+                    stats[s.name].goals += s.goals;
+                    if (s.assist) { touch(s.assist); stats[s.assist].assists += s.goals; }
+                });
+            });
+            (day.teams || []).forEach(t => t.players.forEach(name => {
+                if (!seenToday.has(name)) {
+                    if (!stats[name]) stats[name] = { goals: 0, assists: 0, games: 0 };
+                    stats[name].games += 1;
+                    seenToday.add(name);
+                }
+            }));
+        }
+    });
+    return stats;
+}
+
+function computeStandings(day) {
+    const table = day.teams.map((t, i) => ({ idx: i, name: t.name, gp: 0, w: 0, d: 0, l: 0, gf: 0, ga: 0, pts: 0 }));
+    (day.matches || []).forEach(m => {
+        const a = table[m.teamAIdx], b = table[m.teamBIdx];
+        if (!a || !b) return;
+        a.gp++; b.gp++;
+        a.gf += m.scoreA; a.ga += m.scoreB;
+        b.gf += m.scoreB; b.ga += m.scoreA;
+        if (m.scoreA > m.scoreB) { a.w++; b.l++; a.pts += 3; }
+        else if (m.scoreA < m.scoreB) { b.w++; a.l++; b.pts += 3; }
+        else if (m.wonByPenalties === m.teamAIdx) { a.w++; b.l++; a.pts += 3; }
+        else if (m.wonByPenalties === m.teamBIdx) { b.w++; a.l++; b.pts += 3; }
+        else { a.d++; b.d++; a.pts += 1; b.pts += 1; }
+    });
+    return table.sort((x, y) => y.pts - x.pts || (y.gf - y.ga) - (x.gf - x.ga) || y.gf - x.gf);
+}
+
+function computeDayPersonalStats(day) {
+    const stats = {};
+    const ensure = (name, teamIdx) => {
+        if (!stats[name]) stats[name] = { name, teamIdx, goals: 0, assists: 0 };
+        return stats[name];
+    };
+    (day.matches || []).forEach(m => {
+        (m.scorersA || []).forEach(s => {
+            ensure(s.name, m.teamAIdx).goals += s.goals;
+            if (s.assist) ensure(s.assist, m.teamAIdx).assists += s.goals;
+        });
+        (m.scorersB || []).forEach(s => {
+            ensure(s.name, m.teamBIdx).goals += s.goals;
+            if (s.assist) ensure(s.assist, m.teamBIdx).assists += s.goals;
+        });
+    });
+    return Object.values(stats).sort((a, b) => (b.goals + b.assists) - (a.goals + a.assists) || b.goals - a.goals);
+}
+
+function formatDate(dateStr) {
+    const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(dateStr);
+    return m ? `${m[3]}.${m[2]}.${m[1]}` : dateStr;
+}
+
+function avatarImg(name, size) {
+    size = size || 32;
+    const url = '/api/avatar/' + encodeURIComponent(name);
+    return `<span class="avatar-slot" style="width:${size}px;height:${size}px;flex-basis:${size}px;">` +
+        `<img src="${url}" alt="" onerror="this.parentElement.textContent='👤';">` +
+        `</span>`;
+}
+
+function switchPanel(name) {
+    document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    document.getElementById('panel-' + name).classList.add('active');
+    document.querySelector(`.tab-btn[data-tab="${name}"]`).classList.add('active');
+}
+window.switchPanel = switchPanel;
+
+function renderRating() {
+    const container = document.getElementById('ratingContainer');
+    const sorted = [...roster].sort((a, b) => playerRating(b) - playerRating(a));
+    if (sorted.length === 0) {
+        container.innerHTML = '<div class="empty-state">Список игроков пуст.</div>';
+        return;
+    }
+    const medals = ['🥇', '🥈', '🥉'];
+    container.innerHTML = `
+        <div class="table-card">
+            <div style="overflow-x:auto;">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>#</th>
+                            <th class="left">Игрок</th>
+                            <th>Рейтинг</th>
+                            <th>Г/П</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${sorted.map((p, i) => {
+                            const ga = playerGoalAssistFactor(p.name);
+                            const rankClass = i < 3 ? `top${i + 1}` : '';
+                            return `
+                            <tr class="${rankClass}">
+                                <td class="rank ${i < 3 ? 'medal' : ''}">${i < 3 ? medals[i] : i + 1}</td>
+                                <td class="left">
+                                    <div class="player-cell">
+                                        ${avatarImg(p.name)}
+                                        <span class="player-name">${p.name}</span>
+                                        <span class="pos-badge">${p.pos1}</span>
+                                    </div>
+                                </td>
+                                <td class="rating-value">${playerRating(p).toFixed(2)}</td>
+                                <td class="ga-value">${ga === null ? '—' : ga.toFixed(1)}</td>
+                            </tr>`;
+                        }).join('')}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    `;
+}
+
+function renderStats() {
+    const container = document.getElementById('statsContainer');
+    const arr = Object.entries(gameStatsCache).map(([name, s]) => ({
+        name, goals: s.goals, assists: s.assists, games: s.games, points: s.goals + s.assists
+    })).sort((a, b) => b.goals - a.goals || b.points - a.points);
+
+    if (arr.length === 0) {
+        container.innerHTML = '<div class="empty-state">Пока нет сыгранных игр.</div>';
+        return;
+    }
+    container.innerHTML = `
+        <div class="table-card">
+            <div style="overflow-x:auto;">
+                <table>
+                    <thead>
+                        <tr>
+                            <th class="left">Игрок</th>
+                            <th>⚽ Голы</th>
+                            <th>🎯 Пасы</th>
+                            <th>💰 Очки</th>
+                            <th>🎮 Игры</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${arr.map(s => `
+                            <tr>
+                                <td class="left">
+                                    <div class="player-cell">${avatarImg(s.name, 26)}<span class="player-name">${s.name}</span></div>
+                                </td>
+                                <td class="num">${s.goals}</td>
+                                <td class="num">${s.assists}</td>
+                                <td class="num">${s.points}</td>
+                                <td class="num">${s.games}</td>
+                            </tr>
+                        `).join('')}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    `;
+}
+
+function renderDayCard(day, num) {
+    if (day.legacy) {
+        const totals = day.legacyStats.map(t => t.reduce((s, p) => s + p.goals, 0));
+        const maxGoals = Math.max(...totals);
+        const winners = totals.filter(g => g === maxGoals).length;
+        const teamsHtml = day.legacyStats.map((team, i) => {
+            const isWinner = totals[i] === maxGoals && winners === 1;
+            return `
+                <div class="legacy-team ${isWinner ? 'winner' : ''}">
+                    <div class="legacy-team-title">${(day.teams[i] || {}).name || ('Команда ' + (i + 1))} — ${totals[i]}${isWinner ? ' 🏆' : ''}</div>
+                    ${team.map(p => `<div class="legacy-row"><span>${p.name}</span><span>⚽${p.goals} · 🎯${p.assists}</span></div>`).join('')}
+                </div>
+            `;
+        }).join('');
+        const matchesHtml = (day.matches && day.matches.length) ? `
+            <div class="matches-mini">
+                ${day.matches.map((m, i) => {
+                    const nameA = (day.teams[m.teamAIdx] || {}).name || `Команда ${m.teamAIdx + 1}`;
+                    const nameB = (day.teams[m.teamBIdx] || {}).name || `Команда ${m.teamBIdx + 1}`;
+                    return `<div class="row"><span>${i + 1}. ${nameA} – ${nameB}</span><span>${m.scoreA}:${m.scoreB}</span></div>`;
+                }).join('')}
+            </div>
+        ` : '';
+        return `
+            <div class="day-card">
+                <div class="day-head">
+                    <div class="day-date">📅 ${formatDate(day.date)} · День #${num}</div>
+                    <div class="day-badge">архив</div>
+                </div>
+                <div class="day-body">
+                    <div class="legacy-grid">${teamsHtml}</div>
+                    ${matchesHtml}
+                </div>
+            </div>
+        `;
+    }
+
+    const usingManualStandings = (day.matches || []).length === 0 && Array.isArray(day.manualStandings);
+    const standings = usingManualStandings
+        ? day.manualStandings.map((s, i) => ({ idx: i, ...s }))
+            .sort((x, y) => y.pts - x.pts || (y.gf - y.ga) - (x.gf - x.ga) || y.gf - x.gf)
+        : computeStandings(day);
+    const teamName = idx => (day.teams[idx] || {}).name || `Команда ${idx + 1}`;
+
+    const standingsHtml = `
+        <table class="standings-table">
+            <thead>
+                <tr>
+                    <th class="left">Команда</th><th>И</th><th>В</th><th>Н</th><th>П</th><th>З</th><th>П</th><th>О</th>
+                </tr>
+            </thead>
+            <tbody>
+                ${standings.map((t, i) => `
+                    <tr class="${i === 0 && t.pts > 0 ? 'winner' : ''}">
+                        <td class="left">${i === 0 && t.pts > 0 ? '🏆 ' : ''}${teamName(t.idx)}</td>
+                        <td>${t.gp}</td><td>${t.w}</td><td>${t.d}</td><td>${t.l}</td>
+                        <td>${t.gf}:${t.ga}</td><td><b>${t.pts}</b></td>
+                    </tr>
+                `).join('')}
+            </tbody>
+        </table>
+    `;
+
+    // Личная статистика: либо посчитана из протокола мини-игр, либо (если
+    // протокол не сохранился, а есть только итоговые цифры) — как есть из
+    // day.personalStats, с пометкой, что список может быть неполным.
+    let extraHtml = '';
+    if (usingManualStandings) {
+        if (Array.isArray(day.personalStats) && day.personalStats.length) {
+            extraHtml = `
+                <div class="section-title" style="margin-top:16px;">Личная статистика (может быть неполной — протокол мини-игр не сохранился)</div>
+                <table class="standings-table">
+                    <thead><tr><th class="left">Игрок</th><th class="left">Команда</th><th>Голы</th><th>Пасы</th></tr></thead>
+                    <tbody>
+                        ${day.personalStats.map(p => `
+                            <tr>
+                                <td class="left"><span style="display:inline-flex;align-items:center;gap:6px;">${avatarImg(p.name, 22)}${p.name}</span></td>
+                                <td class="left">${teamName(p.teamIdx)}</td>
+                                <td>${p.goals}</td><td>${p.assists}</td>
+                            </tr>
+                        `).join('')}
+                    </tbody>
+                </table>
+            `;
+        } else {
+            extraHtml = `<div class="empty-state" style="padding:16px 0;">Протокол мини-игр не сохранился, личная статистика недоступна.</div>`;
+        }
+    } else {
+        const personal = computeDayPersonalStats(day);
+        extraHtml = `
+            <div class="section-title" style="margin-top:16px;">Мини-игры (${(day.matches || []).length})</div>
+            <div class="matches-mini">
+                ${(day.matches || []).map((m, i) => {
+                    const scorersA = (m.scorersA || []).map(s => `${s.name} ×${s.goals}${s.assist ? ` (пас: ${s.assist})` : ''}`).join(', ') || '—';
+                    const scorersB = (m.scorersB || []).map(s => `${s.name} ×${s.goals}${s.assist ? ` (пас: ${s.assist})` : ''}`).join(', ') || '—';
+                    const pen = m.wonByPenalties === m.teamAIdx ? ` (⚽ ${teamName(m.teamAIdx)} по пен.)` : m.wonByPenalties === m.teamBIdx ? ` (⚽ ${teamName(m.teamBIdx)} по пен.)` : '';
+                    return `
+                        <div class="row" style="flex-direction:column; align-items:stretch; gap:2px;">
+                            <div style="display:flex; justify-content:space-between;">
+                                <span>${i + 1}. ${teamName(m.teamAIdx)} – ${teamName(m.teamBIdx)}</span>
+                                <span><b>${m.scoreA}:${m.scoreB}</b>${pen}</span>
+                            </div>
+                            <div style="font-size:11px; opacity:.75;">${scorersA} · ${scorersB}</div>
+                        </div>
+                    `;
+                }).join('') || '<div class="empty-state" style="padding:8px 0;">Мини-игр пока нет</div>'}
+            </div>
+            ${personal.length ? `
+            <div class="section-title" style="margin-top:16px;">Личная статистика дня</div>
+            <table class="standings-table">
+                <thead><tr><th class="left">Игрок</th><th class="left">Команда</th><th>Голы</th><th>Пасы</th><th>Очки</th></tr></thead>
+                <tbody>
+                    ${personal.map((p, i) => `
+                        <tr class="${i === 0 ? 'winner' : ''}">
+                            <td class="left"><span style="display:inline-flex;align-items:center;gap:6px;">${avatarImg(p.name, 22)}${p.name}</span></td>
+                            <td class="left">${teamName(p.teamIdx)}</td>
+                            <td>${p.goals}</td><td>${p.assists}</td><td><b>${p.goals + p.assists}</b></td>
+                        </tr>
+                    `).join('')}
+                </tbody>
+            </table>
+            ` : ''}
+        `;
+    }
+
+    return `
+        <div class="day-card">
+            <div class="day-head">
+                <div class="day-date">📅 ${formatDate(day.date)} · День #${num}</div>
+                <div class="day-badge">${(day.matches || []).length} игр</div>
+            </div>
+            <div class="day-body">
+                ${standingsHtml}
+                ${extraHtml}
+            </div>
+        </div>
+    `;
+}
+
+function renderDays() {
+    const container = document.getElementById('daysContainer');
+    if (gameDays.length === 0) {
+        container.innerHTML = '<div class="empty-state">Игровых дней пока нет.</div>';
+        return;
+    }
+    const sorted = [...gameDays].map((d, i) => ({ day: d, num: i + 1 })).reverse();
+    container.innerHTML = sorted.map(({ day, num }) => renderDayCard(day, num)).join('');
+}
+
+async function loadAndRender() {
+    try {
+        const res = await fetch('/api/state');
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+        const data = await res.json();
+        roster = Array.isArray(data.roster) ? data.roster : [];
+        gameDays = Array.isArray(data.gameDays) ? data.gameDays : [];
+        roster.forEach(p => {
+            p.gk = Number(p.gk) || 0; p.def = Number(p.def) || 0;
+            p.att = Number(p.att) || 0; p.end = Number(p.end) || 0;
+        });
+        gameStatsCache = computePlayerGameStats();
+        renderRating();
+        renderStats();
+        renderDays();
+    } catch (e) {
+        console.error('Не удалось загрузить данные:', e);
+        document.getElementById('ratingContainer').innerHTML = '<div class="empty-state">Не удалось загрузить данные. Обновите страницу.</div>';
+    }
+}
+
+loadAndRender();
+</script>
+</body>
+</html>

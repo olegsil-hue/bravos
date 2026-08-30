@@ -1,0 +1,227 @@
+{
+  "_comment": "Патч-файл поверх full-state-migration.json (та применяется строго один раз, поэтому её саму больше не трогаем) — либо дни, которых там не было, либо исправление уже вставленных дней с неверными/нулевыми данными. Применяется на каждом запуске бота (applyAdditionalLegacyGameDays в db.js) через UPSERT по id — можно уточнять повторно. Для legacy-дней (21.01-15.07): legacyStats — суммарные Г/П за день на игрока, matches — точный по-игровой лог для наглядности карточки (teamAIdx/teamBIdx/scoreA/scoreB, wonByPenalties — победитель серии пенальти), суммы сверены с исходной таблицей построчно. Для нелегаси-дней без сохранённого протокола мини-игр (напр. 29.07) — manualStandings (итоговая таблица) + personalStats (личная статистика дня); эти данные и так были в full-state-migration.json на момент написания патча, но т.к. миграция уже была потрачена на проде раньше их добавления — сюда, чтобы дошли.",
+  "gameDays": [
+    {
+      "id": 1700000000016,
+      "date": "01.07",
+      "legacy": true,
+      "teams": [
+        {
+          "name": "Команда 1",
+          "colorIdx": 0,
+          "players": ["Алексей Милованович", "Витинька", "Петр Звенигородский", "Георгий Вагин", "Паша Пахомов"]
+        },
+        {
+          "name": "Команда 2",
+          "colorIdx": 1,
+          "players": ["Паша Орлов", "Илья Сыван", "Игорь Еремеев", "Максим Савиола", "Андрей Берликов"]
+        },
+        {
+          "name": "Команда 3",
+          "colorIdx": 2,
+          "players": ["Олег Сильченко", "Антон Борисов", "Паша Вирник", "Алексей Зайцев", "Дима Фродин"]
+        }
+      ],
+      "legacyStats": [
+        [
+          { "name": "Алексей Милованович", "goals": 2, "assists": 2 },
+          { "name": "Витинька", "goals": 3, "assists": 0 },
+          { "name": "Петр Звенигородский", "goals": 1, "assists": 0 },
+          { "name": "Георгий Вагин", "goals": 1, "assists": 1 },
+          { "name": "Паша Пахомов", "goals": 0, "assists": 0 }
+        ],
+        [
+          { "name": "Паша Орлов", "goals": 3, "assists": 1 },
+          { "name": "Илья Сыван", "goals": 3, "assists": 0 },
+          { "name": "Игорь Еремеев", "goals": 0, "assists": 0 },
+          { "name": "Максим Савиола", "goals": 2, "assists": 3 },
+          { "name": "Андрей Берликов", "goals": 0, "assists": 1 }
+        ],
+        [
+          { "name": "Олег Сильченко", "goals": 2, "assists": 0 },
+          { "name": "Антон Борисов", "goals": 2, "assists": 1 },
+          { "name": "Паша Вирник", "goals": 1, "assists": 1 },
+          { "name": "Алексей Зайцев", "goals": 0, "assists": 1 },
+          { "name": "Дима Фродин", "goals": 0, "assists": 0 }
+        ]
+      ],
+      "matches": [
+        { "teamAIdx": 0, "teamBIdx": 2, "scoreA": 1, "scoreB": 1, "wonByPenalties": 0 },
+        { "teamAIdx": 0, "teamBIdx": 1, "scoreA": 1, "scoreB": 1, "wonByPenalties": 1 },
+        { "teamAIdx": 1, "teamBIdx": 2, "scoreA": 2, "scoreB": 0 },
+        { "teamAIdx": 0, "teamBIdx": 1, "scoreA": 0, "scoreB": 0, "wonByPenalties": 0 },
+        { "teamAIdx": 0, "teamBIdx": 2, "scoreA": 1, "scoreB": 1, "wonByPenalties": 2 },
+        { "teamAIdx": 1, "teamBIdx": 2, "scoreA": 2, "scoreB": 0 },
+        { "teamAIdx": 0, "teamBIdx": 1, "scoreA": 2, "scoreB": 0 },
+        { "teamAIdx": 0, "teamBIdx": 2, "scoreA": 1, "scoreB": 1, "wonByPenalties": 2 },
+        { "teamAIdx": 1, "teamBIdx": 2, "scoreA": 1, "scoreB": 1, "wonByPenalties": 1 },
+        { "teamAIdx": 0, "teamBIdx": 1, "scoreA": 0, "scoreB": 1 },
+        { "teamAIdx": 1, "teamBIdx": 2, "scoreA": 0, "scoreB": 0, "wonByPenalties": 2 },
+        { "teamAIdx": 0, "teamBIdx": 2, "scoreA": 0, "scoreB": 1 },
+        { "teamAIdx": 1, "teamBIdx": 2, "scoreA": 2, "scoreB": 0 }
+      ]
+    },
+    {
+      "id": 1700000000017,
+      "date": "08.07",
+      "legacy": true,
+      "teams": [
+        {
+          "name": "Команда 1",
+          "colorIdx": 0,
+          "players": ["Алексей Милованович", "Максим Савиола", "Алексей Зайцев", "Олег Иохин", "Миша Комков"]
+        },
+        {
+          "name": "Команда 2",
+          "colorIdx": 1,
+          "players": ["Дима Корольков", "Петр Звенигородский", "Олег Сильченко", "Антон Борисов", "Саша Ли"]
+        },
+        {
+          "name": "Команда 3",
+          "colorIdx": 2,
+          "players": ["Женя Клюшин", "Илья Сыван", "Паша Вирник", "Игорь Еремеев", "Андрей Берликов"]
+        }
+      ],
+      "legacyStats": [
+        [
+          { "name": "Алексей Милованович", "goals": 1, "assists": 1 },
+          { "name": "Максим Савиола", "goals": 2, "assists": 2 },
+          { "name": "Алексей Зайцев", "goals": 1, "assists": 0 },
+          { "name": "Олег Иохин", "goals": 4, "assists": 3 },
+          { "name": "Миша Комков", "goals": 1, "assists": 3 }
+        ],
+        [
+          { "name": "Дима Корольков", "goals": 0, "assists": 0 },
+          { "name": "Петр Звенигородский", "goals": 1, "assists": 0 },
+          { "name": "Олег Сильченко", "goals": 1, "assists": 1 },
+          { "name": "Антон Борисов", "goals": 2, "assists": 1 },
+          { "name": "Саша Ли", "goals": 0, "assists": 1 }
+        ],
+        [
+          { "name": "Женя Клюшин", "goals": 1, "assists": 2 },
+          { "name": "Илья Сыван", "goals": 1, "assists": 2 },
+          { "name": "Паша Вирник", "goals": 2, "assists": 2 },
+          { "name": "Игорь Еремеев", "goals": 2, "assists": 1 },
+          { "name": "Андрей Берликов", "goals": 0, "assists": 0 }
+        ]
+      ],
+      "matches": [
+        { "teamAIdx": 0, "teamBIdx": 2, "scoreA": 0, "scoreB": 1 },
+        { "teamAIdx": 1, "teamBIdx": 2, "scoreA": 0, "scoreB": 2 },
+        { "teamAIdx": 0, "teamBIdx": 2, "scoreA": 2, "scoreB": 0 },
+        { "teamAIdx": 0, "teamBIdx": 1, "scoreA": 1, "scoreB": 0 },
+        { "teamAIdx": 0, "teamBIdx": 2, "scoreA": 1, "scoreB": 1 },
+        { "teamAIdx": 1, "teamBIdx": 2, "scoreA": 1, "scoreB": 2 },
+        { "teamAIdx": 0, "teamBIdx": 2, "scoreA": 0, "scoreB": 2 },
+        { "teamAIdx": 1, "teamBIdx": 2, "scoreA": 0, "scoreB": 1 },
+        { "teamAIdx": 0, "teamBIdx": 2, "scoreA": 2, "scoreB": 0 },
+        { "teamAIdx": 0, "teamBIdx": 1, "scoreA": 0, "scoreB": 2 },
+        { "teamAIdx": 1, "teamBIdx": 2, "scoreA": 0, "scoreB": 1 },
+        { "teamAIdx": 0, "teamBIdx": 2, "scoreA": 2, "scoreB": 0 },
+        { "teamAIdx": 0, "teamBIdx": 1, "scoreA": 1, "scoreB": 1 }
+      ]
+    },
+    {
+      "id": 1700000000018,
+      "date": "15.07",
+      "legacy": true,
+      "teams": [
+        {
+          "name": "Команда 1",
+          "colorIdx": 0,
+          "players": ["Алексей Милованович", "Игорь Еремеев", "Ваня от Клюшина", "Олег Иохин", "Миша Комков"]
+        },
+        {
+          "name": "Команда 2",
+          "colorIdx": 1,
+          "players": ["Дима Корольков", "Петр Звенигородский", "Олег Сильченко", "Илья Сыван", "Паша Вирник"]
+        },
+        {
+          "name": "Команда 3",
+          "colorIdx": 2,
+          "players": ["Женя Клюшин", "Максим Савиола", "Алексей Зайцев", "Паша Орлов", "Кирилл Лизунов"]
+        }
+      ],
+      "legacyStats": [
+        [
+          { "name": "Алексей Милованович", "goals": 0, "assists": 1 },
+          { "name": "Игорь Еремеев", "goals": 0, "assists": 2 },
+          { "name": "Ваня от Клюшина", "goals": 2, "assists": 1 },
+          { "name": "Олег Иохин", "goals": 5, "assists": 1 },
+          { "name": "Миша Комков", "goals": 2, "assists": 1 }
+        ],
+        [
+          { "name": "Дима Корольков", "goals": 0, "assists": 0 },
+          { "name": "Петр Звенигородский", "goals": 1, "assists": 0 },
+          { "name": "Олег Сильченко", "goals": 0, "assists": 0 },
+          { "name": "Илья Сыван", "goals": 0, "assists": 1 },
+          { "name": "Паша Вирник", "goals": 3, "assists": 0 }
+        ],
+        [
+          { "name": "Женя Клюшин", "goals": 1, "assists": 1 },
+          { "name": "Максим Савиола", "goals": 2, "assists": 0 },
+          { "name": "Алексей Зайцев", "goals": 0, "assists": 0 },
+          { "name": "Паша Орлов", "goals": 0, "assists": 0 },
+          { "name": "Кирилл Лизунов", "goals": 1, "assists": 2 }
+        ]
+      ],
+      "matches": [
+        { "teamAIdx": 0, "teamBIdx": 2, "scoreA": 1, "scoreB": 0 },
+        { "teamAIdx": 0, "teamBIdx": 1, "scoreA": 0, "scoreB": 1 },
+        { "teamAIdx": 1, "teamBIdx": 2, "scoreA": 0, "scoreB": 2 },
+        { "teamAIdx": 0, "teamBIdx": 2, "scoreA": 0, "scoreB": 0 },
+        { "teamAIdx": 0, "teamBIdx": 1, "scoreA": 2, "scoreB": 0 },
+        { "teamAIdx": 0, "teamBIdx": 2, "scoreA": 0, "scoreB": 0 },
+        { "teamAIdx": 1, "teamBIdx": 2, "scoreA": 0, "scoreB": 0 },
+        { "teamAIdx": 0, "teamBIdx": 1, "scoreA": 1, "scoreB": 1 },
+        { "teamAIdx": 0, "teamBIdx": 2, "scoreA": 1, "scoreB": 0 },
+        { "teamAIdx": 0, "teamBIdx": 1, "scoreA": 0, "scoreB": 1 },
+        { "teamAIdx": 1, "teamBIdx": 2, "scoreA": 0, "scoreB": 1 },
+        { "teamAIdx": 0, "teamBIdx": 2, "scoreA": 1, "scoreB": 0 },
+        { "teamAIdx": 0, "teamBIdx": 1, "scoreA": 2, "scoreB": 1 },
+        { "teamAIdx": 0, "teamBIdx": 2, "scoreA": 1, "scoreB": 1 }
+      ]
+    },
+    {
+      "id": 1700000000101,
+      "date": "2026-07-29",
+      "legacy": false,
+      "teams": [
+        {
+          "name": "Команда 1",
+          "colorIdx": 0,
+          "players": ["Алексей Милованович", "Илья Сыван", "Дима Войнаревич", "Алексей Зайцев", "Миша Фирсков"]
+        },
+        {
+          "name": "Команда 2",
+          "colorIdx": 1,
+          "players": ["Ваня от Клюшина", "Олег Иохин", "Паша Вирник", "Дима Корольков", "Андрей Берликов"]
+        },
+        {
+          "name": "Команда 3",
+          "colorIdx": 2,
+          "players": ["Женя Клюшин", "Паша Орлов", "Влад от Игоря", "Саша Ли", "Георгий Вагин"]
+        }
+      ],
+      "matches": [],
+      "manualStandings": [
+        { "gp": 7, "w": 1, "d": 1, "l": 5, "gf": 3, "ga": 6, "pts": 4 },
+        { "gp": 9, "w": 4, "d": 3, "l": 2, "gf": 6, "ga": 5, "pts": 15 },
+        { "gp": 10, "w": 4, "d": 4, "l": 2, "gf": 6, "ga": 4, "pts": 16 }
+      ],
+      "personalStats": [
+        { "name": "Ваня от Клюшина", "teamIdx": 1, "goals": 4, "assists": 0 },
+        { "name": "Олег Иохин", "teamIdx": 1, "goals": 2, "assists": 2 },
+        { "name": "Миша Фирсков", "teamIdx": 0, "goals": 1, "assists": 2 },
+        { "name": "Алексей Зайцев", "teamIdx": 0, "goals": 2, "assists": 0 },
+        { "name": "Влад от Игоря", "teamIdx": 2, "goals": 2, "assists": 0 },
+        { "name": "Паша Вирник", "teamIdx": 1, "goals": 0, "assists": 2 },
+        { "name": "Андрей Берликов", "teamIdx": 1, "goals": 0, "assists": 2 },
+        { "name": "Женя Клюшин", "teamIdx": 2, "goals": 0, "assists": 2 },
+        { "name": "Георгий Вагин", "teamIdx": 2, "goals": 1, "assists": 0 },
+        { "name": "Илья Сыван", "teamIdx": 0, "goals": 0, "assists": 1 },
+        { "name": "Паша Орлов", "teamIdx": 2, "goals": 0, "assists": 1 }
+      ]
+    }
+  ]
+}

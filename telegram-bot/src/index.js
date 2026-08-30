@@ -1,0 +1,865 @@
+'use strict';
+
+require('dotenv').config();
+const { Telegraf, Markup, Input } = require('telegraf');
+const cron = require('node-cron');
+
+const db = require('./db');
+const { computePlayerGameStats, computeStandings, computeDayPersonalStats } = require('./core/stats');
+const { playerRating } = require('./core/rating');
+const { smartDivide, optimizeTeamBalance } = require('./core/division');
+const gameRecording = require('./gameRecording');
+const { renderDayReportImages } = require('./imageReport');
+const { startServer } = require('./server');
+
+const TOKEN = process.env.TELEGRAM_BOT_TOKEN;
+const GROUP_CHAT_ID = process.env.TELEGRAM_GROUP_CHAT_ID ? Number(process.env.TELEGRAM_GROUP_CHAT_ID) : null;
+const ADMIN_USER_ID = process.env.TELEGRAM_ADMIN_USER_ID ? Number(process.env.TELEGRAM_ADMIN_USER_ID) : null;
+const TIMEZONE = process.env.TIMEZONE || 'Europe/Moscow';
+
+if (!TOKEN) {
+  console.error('TELEGRAM_BOT_TOKEN не задан — см. .env.example');
+  process.exit(1);
+}
+
+console.log(
+  `Конфигурация: TOKEN=${TOKEN.slice(0, 8)}… GROUP_CHAT_ID=${GROUP_CHAT_ID ?? 'не задан'} ` +
+  `ADMIN_USER_ID=${ADMIN_USER_ID ?? 'не задан'} TIMEZONE=${TIMEZONE}`
+);
+if (!GROUP_CHAT_ID) console.warn('⚠️ TELEGRAM_GROUP_CHAT_ID не задан — /poll и запись игр не смогут писать в группу.');
+if (!ADMIN_USER_ID) console.warn('⚠️ TELEGRAM_ADMIN_USER_ID не задан — некому будет прислать деление на апрув.');
+
+process.on('unhandledRejection', err => console.error('unhandledRejection:', err));
+process.on('uncaughtException', err => console.error('uncaughtException:', err));
+
+const bot = new Telegraf(TOKEN);
+
+// Пассивная привязка Telegram-аккаунта к игроку: срабатывает на ЛЮБОЙ
+// апдейт от пользователя (любая команда, нажатие инлайн-кнопки, голос в
+// опросе — что угодно), без явной команды /register. Нужна, чтобы у бота
+// появился telegram_user_id игрока (для фото профиля на странице «Игроки»,
+// а заодно и для учёта при делении) сразу же, как только человек хоть раз
+// написал боту или нажал что-то в группе. Ждать этого не нужно: Bot API в
+// принципе не даёт узнать id пользователя, пока он сам не прислал хоть
+// один апдейт — раньше этого момента связать имя из списка с конкретным
+// Telegram-аккаунтом невозможно даже теоретически.
+bot.use(async (ctx, next) => {
+  try {
+    if (ctx.from) safeAutoLink(ctx.from);
+  } catch (e) {
+    console.error('Пассивная привязка Telegram-аккаунта упала:', e.message);
+  }
+  return next();
+});
+
+const OPT_IN = 'Буду';
+const OPT_OUT = 'Не смогу';
+
+function isAdmin(ctx) {
+  return ADMIN_USER_ID && ctx.from && ctx.from.id === ADMIN_USER_ID;
+}
+
+function nextWednesday(from = new Date()) {
+  const d = new Date(from);
+  const day = d.getDay(); // 0=Вс,1=Пн,...3=Ср
+  let diff = (3 - day + 7) % 7;
+  if (diff === 0) diff = 7; // если сегодня среда — берём следующую
+  d.setDate(d.getDate() + diff);
+  return d.toISOString().slice(0, 10);
+}
+
+// ===================================================================
+// Команды
+// ===================================================================
+
+bot.start(ctx => ctx.reply(
+  'Привет! Это бот футбольных сборов.\n\n' +
+  'Если ваш Telegram username указан в списке игроков (веб-приложение,' +
+  ' вкладка «Игроки») — вас узнают автоматически при первом голосовании' +
+  ' в опросе, ничего делать не нужно.\n\n' +
+  'Если username не указан или голос не засчитался — привяжите себя' +
+  ' командой:\n/register Имя Фамилия (как в списке игроков)'
+));
+
+bot.command('register', async ctx => {
+  const name = ctx.message.text.replace(/^\/register(@\w+)?/, '').trim();
+  if (!name) {
+    return ctx.reply('Использование: /register Имя Фамилия — как игрок записан в списке приложения.');
+  }
+  const player = db.findPlayerByName(name);
+  if (!player) {
+    return ctx.reply(`❌ Не нашёл игрока «${name}» в списке. Проверьте написание (регистр не важен, но имя должно точно совпадать).`);
+  }
+  db.linkTelegramUser(ctx.from.id, ctx.from.username, player.name);
+  return ctx.reply(`✅ Готово, вы привязаны к игроку «${player.name}».`);
+});
+
+bot.command('players', ctx => {
+  const roster = db.getRoster().sort((a, b) => a.name.localeCompare(b.name, 'ru'));
+  const lines = roster.map(p => {
+    const tags = [p.telegramUsername ? `@${p.telegramUsername}` : null, p.telegramDisplayName ? `«${p.telegramDisplayName}»` : null].filter(Boolean);
+    return tags.length ? `${p.name} — ${tags.join(', ')}` : p.name;
+  });
+  return ctx.reply('Список игроков:\n' + lines.join('\n'));
+});
+
+// Массовая привязка Telegram username → игрок, без /register для каждого.
+// Источник данных — поле «Telegram username» в веб-приложении (вкладка
+// «Игроки»): там же есть «Массовый ввод/экспорт», строки которого можно
+// вставить сюда как есть (см. extractPastedField ниже — как именно
+// достаётся нужное поле из такой строки). Можно и просто «Имя; username»
+// построчно.
+
+// Достаёт нужное поле из строки-заготовки: короткая форма «Имя; значение»
+// (ровно 2 части) — берём вторую часть; полная строка из «Массовый
+// ввод/экспорт» веб-приложения (8 полей до появления displayName, или 9
+// после: ...; username[; displayName]) — берём по ФИКСИРОВАННОМУ индексу,
+// а не «последнее поле», иначе после добавления displayName как 9-го
+// столбца /set_usernames начал бы путать его с username.
+function extractPastedField(parts, fixedIdx) {
+  if (parts.length === 2) return parts[1];
+  if (parts.length > fixedIdx) return parts[fixedIdx];
+  return parts[parts.length - 1]; // короче ожидаемого — берём как есть
+}
+
+// Достаёт числовой id-аргумент команды вида «/команда 20». Терпим к тому,
+// что кто-то введёт id в угловых скобках или с «#» — так выглядит
+// плейсхолдер в подсказках («/delete_day <id>»), и люди иногда копируют
+// его буквально вместе со скобками вместо самого числа.
+function parseIdArg(ctx, commandName) {
+  const raw = ctx.message.text.replace(new RegExp(`^/${commandName}(@\\w+)?`), '').trim();
+  const cleaned = raw.replace(/[<>#]/g, '').trim();
+  if (!cleaned) return null;
+  const id = parseInt(cleaned, 10);
+  return Number.isFinite(id) && id > 0 ? id : null;
+}
+
+bot.command('set_usernames', async ctx => {
+  if (!isAdmin(ctx)) return ctx.reply('Эта команда только для администратора.');
+  const body = ctx.message.text.replace(/^\/set_usernames(@\w+)?/, '').trim();
+  if (!body) {
+    return ctx.reply(
+      'Использование: /set_usernames, а дальше — по одной строке на игрока:\n' +
+      'Имя Фамилия; username\n\n' +
+      'Можно вставить прямо строки из «Массовый ввод/экспорт» веб-приложения ' +
+      '(Имя; Поз1; Поз2; GK; DEF; ATT; END; username; Отображаемое имя) — лишние поля проигнорируются.'
+    );
+  }
+
+  const lines = body.split('\n').map(l => l.trim()).filter(l => l);
+  let updated = 0;
+  const notFound = [];
+  for (const line of lines) {
+    const parts = line.split(';').map(p => p.trim());
+    if (parts.length < 2) continue;
+    const name = parts[0];
+    const username = extractPastedField(parts, 7);
+    if (!name) continue;
+    const ok = db.setPlayerTelegramUsername(name, username);
+    if (ok) updated++; else notFound.push(name);
+  }
+
+  let reply = `✅ Обновлено username: ${updated}.`;
+  if (notFound.length) reply += `\n⚠️ Не найдены в списке игроков: ${notFound.join(', ')}`;
+  return ctx.reply(reply);
+});
+
+// Отображаемое имя в Telegram (first_name + last_name) — запасной способ
+// узнать голосующего, у которого вообще нет @username (частый случай).
+// В отличие от username это произвольный ник (эмодзи, что угодно) — не
+// выводится автоматически из настоящего имени, поэтому так же требует
+// разовой ручной привязки, просто ловит других людей. Разделитель — «;»,
+// как и в /set_usernames; текст справа от последней «;» на строке
+// сохраняется как есть (с пробелами и эмодзи), только обрезается по краям.
+bot.command('set_display_names', async ctx => {
+  if (!isAdmin(ctx)) return ctx.reply('Эта команда только для администратора.');
+  const body = ctx.message.text.replace(/^\/set_display_names(@\w+)?/, '').trim();
+  if (!body) {
+    return ctx.reply(
+      'Использование: /set_display_names, а дальше — по одной строке на игрока:\n' +
+      'Имя Фамилия; Отображаемое имя в Telegram\n\n' +
+      'Отображаемое имя — то, что видно в «Poll Results» или в самом чате ' +
+      '(может отличаться от настоящего имени и содержать эмодзи), не «@username».\n\n' +
+      'Можно вставить прямо строки из «Массовый ввод/экспорт» веб-приложения ' +
+      '(Имя; Поз1; Поз2; GK; DEF; ATT; END; username; Отображаемое имя) — лишние поля проигнорируются.'
+    );
+  }
+
+  const lines = body.split('\n').map(l => l.trim()).filter(l => l);
+  let updated = 0;
+  const notFound = [];
+  for (const line of lines) {
+    const parts = line.split(';').map(p => p.trim());
+    if (parts.length < 2) continue;
+    const name = parts[0];
+    const displayName = extractPastedField(parts, 8);
+    if (!name || !displayName) continue;
+    const ok = db.setPlayerTelegramDisplayName(name, displayName);
+    if (ok) updated++; else notFound.push(name);
+  }
+
+  let reply = `✅ Обновлено отображаемых имён: ${updated}.`;
+  if (notFound.length) reply += `\n⚠️ Не найдены в списке игроков: ${notFound.join(', ')}`;
+  return ctx.reply(reply);
+});
+
+// Ручной запуск опроса — «после моего апрува» = сама команда и есть апрув.
+// Общая логика для команды /poll и автозапуска по расписанию (см.
+// планировщик ниже) — не дублируем отправку опроса в двух местах.
+async function launchPoll() {
+  if (!GROUP_CHAT_ID) return null;
+  const eventDate = nextWednesday();
+  const { pollQuestion } = db.getPollSettings();
+  const message = await bot.telegram.sendPoll(
+    GROUP_CHAT_ID,
+    pollQuestion,
+    [OPT_IN, OPT_OUT],
+    { is_anonymous: false, allows_multiple_answers: false }
+  );
+  db.createPoll({
+    telegramPollId: message.poll.id,
+    chatId: message.chat.id,
+    messageId: message.message_id,
+    eventDate,
+  });
+  return eventDate;
+}
+
+bot.command('poll', async ctx => {
+  if (!isAdmin(ctx)) return ctx.reply('Эта команда только для администратора.');
+  if (!GROUP_CHAT_ID) return ctx.reply('❌ Не задан TELEGRAM_GROUP_CHAT_ID в настройках бота.');
+  const eventDate = await launchPoll();
+  return ctx.reply(`✅ Опрос отправлен в группу на игру ${eventDate}.`);
+});
+
+bot.command('status', ctx => {
+  if (!isAdmin(ctx)) return ctx.reply('Эта команда только для администратора.');
+  const poll = db.getLatestOpenPoll();
+  if (!poll) return ctx.reply('Открытых опросов нет.');
+  const responses = db.getPollResponses(poll.id);
+  const inCount = responses.filter(r => r.option_text === OPT_IN).length;
+  return ctx.reply(
+    `Опрос #${poll.id} на ${poll.event_date}: ${responses.length} ответов, «${OPT_IN}» — ${inCount}.\n` +
+    `Если голосов ожидалось больше — возможно, есть ещё один открытый опрос: проверьте /polls.`
+  );
+});
+
+// Список всех опросов (открытых и закрытых) с числом голосов — нужен,
+// когда открытых опросов оказалось несколько (например, случайно
+// оставленный тестовый) и /divide_now по умолчанию берёт не тот
+// (getLatestOpenPoll — это «последний СОЗДАННЫЙ», не «с наибольшим
+// числом голосов»). Отсюда видно id нужного опроса для /divide_now <id>.
+// Закрывает опрос и удаляет само сообщение с ним из чата — «Stop Poll» в
+// самом Telegram только останавливает голосование, сообщение остаётся
+// висеть. Без аргумента — последний открытый опрос; можно указать id
+// числом (смотрите в /polls), если открытых несколько.
+bot.command('cancel_poll', async ctx => {
+  if (!isAdmin(ctx)) return ctx.reply('Эта команда только для администратора.');
+  const explicitId = parseIdArg(ctx, 'cancel_poll');
+  const poll = explicitId ? db.getPollById(explicitId) : db.getLatestOpenPoll();
+  if (!poll) return ctx.reply('Открытых опросов нет. Если нужен конкретный закрытый — id числом, см. /polls.');
+
+  db.closePoll(poll.id);
+  try {
+    await bot.telegram.deleteMessage(poll.chat_id, poll.message_id);
+    return ctx.reply(`✅ Опрос #${poll.id} закрыт, сообщение в группе удалено.`);
+  } catch (e) {
+    // Бот может удалить сообщение, только если он админ группы (либо
+    // сообщение младше 48 часов) — если не вышло, хотя бы закрыли в базе.
+    return ctx.reply(
+      `Опрос #${poll.id} закрыт в базе, но сообщение удалить не смог (${e.message}). ` +
+      `Сделайте бота админом группы, либо удалите сообщение вручную (долгий тап → Удалить).`
+    );
+  }
+});
+
+bot.command('polls', ctx => {
+  if (!isAdmin(ctx)) return ctx.reply('Эта команда только для администратора.');
+  const polls = db.getAllPollsWithCounts();
+  if (!polls.length) return ctx.reply('Опросов пока не было.');
+  const lines = polls.slice(0, 10).map(p =>
+    `#${p.id} — ${p.event_date} — ${p.status === 'open' ? '🟢 открыт' : '⚪ закрыт'} — «${OPT_IN}»: ${p.in_count}, всего: ${p.total_count}`
+  );
+  return ctx.reply('Опросы (последние 10):\n' + lines.join('\n') + '\n\nЧтобы поделить по конкретному — id числом после команды, например: /divide_now 3');
+});
+
+// Тестовая команда: дозаполнить текущий опрос случайными игроками из
+// списка (фейковые telegram_user_id, отрицательные — не пересекутся с
+// реальными). Не трогает уже поданные настоящие голоса. Нужна, чтобы
+// проверить деление и запись игр без сбора реальных 9-15 человек.
+bot.command('simulate_votes', async ctx => {
+  if (!isAdmin(ctx)) return ctx.reply('Эта команда только для администратора.');
+  const poll = db.getLatestOpenPoll();
+  if (!poll) return ctx.reply('Открытых опросов нет — сначала /poll.');
+
+  const arg = ctx.message.text.replace(/^\/simulate_votes(@\w+)?/, '').trim();
+  const count = Math.max(1, Math.min(15, parseInt(arg, 10) || 9));
+
+  const alreadyLinkedNames = new Set(
+    db.getPollResponses(poll.id)
+      .map(r => db.getPlayerNameByTelegramId(r.telegram_user_id))
+      .filter(Boolean)
+  );
+  const pool = db.getRoster().map(p => p.name).filter(n => !alreadyLinkedNames.has(n));
+  for (let i = pool.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [pool[i], pool[j]] = [pool[j], pool[i]];
+  }
+  const picked = pool.slice(0, count);
+
+  picked.forEach((name, i) => {
+    const fakeId = -1000 - i - Date.now() % 1000; // отрицательный, гарантированно не реальный
+    db.linkTelegramUser(fakeId, `test_${i}`, name);
+    db.recordPollResponse(poll.id, fakeId, OPT_IN);
+  });
+
+  return ctx.reply(`✅ Добавлено ${picked.length} тестовых голосов «${OPT_IN}»: ${picked.join(', ')}`);
+});
+
+// Тестовая команда: закрыть опрос и прислать деление на апрув прямо сейчас,
+// не дожидаясь среды 12:00 по расписанию. Удобно для проверки после деплоя.
+bot.command('divide_now', async ctx => {
+  if (!isAdmin(ctx)) return ctx.reply('Эта команда только для администратора.');
+  const explicitId = parseIdArg(ctx, 'divide_now');
+
+  const poll = explicitId ? db.getPollById(explicitId) : db.getLatestOpenPoll();
+  if (!poll) {
+    return ctx.reply(
+      explicitId
+        ? `Опрос #${explicitId} не найден.`
+        : 'Открытых опросов нет — сначала /poll. Если опрос был, но уже закрыт не тем /divide_now — проверьте /polls и укажите id числом, например: /divide_now 3.'
+    );
+  }
+  db.closePoll(poll.id);
+  await ctx.reply(`Считаю состав по опросу #${poll.id} (${poll.event_date})...`);
+  await sendDivisionForApproval(poll);
+});
+
+// Ручное занесение состава «Буду», когда список уже известен не из опроса
+// самого бота (например, опрос был создан вручную в группе стандартным
+// Telegram-опросом — Telegram присылает poll_answer только по опросам,
+// отправленным самим ботом через /poll, так что такой опрос бот в принципе
+// не видит). Админ вставляет реальные имена игроков (как в списке, см.
+// /players) по одному на строке — команда заводит технический «опрос» в
+// базе, засчитывает их как «Буду» и сразу присылает деление на апрув —
+// той же командой approve/regenerate, что и обычно.
+bot.command('manual_divide', async ctx => {
+  if (!isAdmin(ctx)) return ctx.reply('Эта команда только для администратора.');
+  const body = ctx.message.text.replace(/^\/manual_divide(@\w+)?/, '').trim();
+  if (!body) {
+    return ctx.reply(
+      'Использование: /manual_divide, а дальше — имена игроков «Буду» по одному на строке, как в /players.\n\n' +
+      'Нужно, когда опрос смотрели не через /poll бота (например, обычный Telegram-опрос в группе) — бот не получает голоса по чужим опросам.'
+    );
+  }
+
+  const names = body.split('\n').map(l => l.trim()).filter(l => l);
+  const found = [];
+  const notFound = [];
+  names.forEach(n => {
+    const p = db.findPlayerByName(n);
+    if (p) found.push(p.name); else notFound.push(n);
+  });
+
+  if (found.length < 2) {
+    return ctx.reply(
+      `❌ Нашёл в списке игроков только ${found.length} — этого мало для деления.` +
+      (notFound.length ? `\nНе нашёл (проверьте написание — должно точно совпадать со списком /players): ${notFound.join(', ')}` : '')
+    );
+  }
+
+  const eventDate = nextWednesday();
+  const pollId = db.createPoll({ telegramPollId: null, chatId: GROUP_CHAT_ID || ctx.chat.id, messageId: null, eventDate });
+  const poll = db.db.prepare('SELECT * FROM polls WHERE id = ?').get(pollId);
+
+  found.forEach((name, i) => {
+    const fakeId = -2000 - i - Date.now() % 1000; // отрицательный, гарантированно не реальный
+    db.linkTelegramUser(fakeId, `manual_${i}`, name);
+    db.recordPollResponse(poll.id, fakeId, OPT_IN);
+  });
+  db.closePoll(poll.id);
+
+  await ctx.reply(
+    `✅ Занесено ${found.length} игроков «Буду»${notFound.length ? ` (не нашёл: ${notFound.join(', ')})` : ''}. Считаю состав...`
+  );
+  await sendDivisionForApproval(poll);
+});
+
+// ===================================================================
+// Ответы на опрос
+// ===================================================================
+
+// Отображаемое имя в Telegram — first_name (+ last_name, если есть). В
+// отличие от username оно есть почти всегда, но само по себе — вольный
+// ник, не связанный с настоящим именем.
+function telegramDisplayName(user) {
+  if (!user) return null;
+  return [user.first_name, user.last_name].filter(Boolean).join(' ') || null;
+}
+
+// Пробует опознать голосующего по username или отображаемому имени (в
+// этом порядке — username надёжнее). Возвращает имя игрока или null.
+// user — объект вида { id, username, first_name, last_name }.
+function matchPlayerByTelegramUser(user) {
+  if (!user) return null;
+  if (user.username) {
+    const byUsername = db.findPlayerByTelegramUsername(user.username);
+    if (byUsername) return byUsername.name;
+  }
+  const displayName = telegramDisplayName(user);
+  if (displayName) {
+    const byDisplayName = db.findPlayerByTelegramDisplayName(displayName);
+    if (byDisplayName) return byDisplayName.name;
+  }
+  return null;
+}
+
+// Автопривязка с защитой от коллизии имён (см. историю «Паша Орлов» vs
+// «Паша Тренин» — оба совпали по generic Telegram-имени "Pavel", из-за
+// чего один игрок получил чужое фото). Если найденный по имени игрок уже
+// привязан к ДРУГОМУ telegram_user_id — это явный признак неоднозначного
+// имени, и мы НЕ перезаписываем/задваиваем привязку молча, а пропускаем и
+// логируем: разбираться придётся вручную (/register от самого человека —
+// однозначен, т.к. имя игрока называет он сам, а не сопоставление по
+// Telegram-нику). Используется всюду, где привязка идёт автоматически —
+// пассивно, по опросу, по бэкфиллу админов и т.п.
+function safeAutoLink(user) {
+  if (!user || user.is_bot) return null;
+  const already = db.getPlayerNameByTelegramId(user.id);
+  if (already) return already;
+  const matched = matchPlayerByTelegramUser(user);
+  if (!matched) return null;
+  if (db.hasOtherTelegramLink(matched, user.id)) {
+    console.warn(
+      `⚠️ Коллизия имён при автопривязке: Telegram id=${user.id} (${telegramDisplayName(user) || user.username || '?'}) ` +
+      `совпал с игроком «${matched}» по имени, но тот уже привязан к другому аккаунту — пропускаю, нужен ручной /register.`
+    );
+    return null;
+  }
+  db.linkTelegramUser(user.id, user.username, matched);
+  return matched;
+}
+
+bot.on('poll_answer', async ctx => {
+  const answer = ctx.update.poll_answer;
+  const poll = db.getOpenPollByTelegramId(answer.poll_id);
+  if (!poll) return;
+
+  // Пустой option_ids = пользователь отозвал голос.
+  if (!answer.option_ids || answer.option_ids.length === 0) return;
+
+  const optionText = answer.option_ids[0] === 0 ? OPT_IN : OPT_OUT;
+  db.recordPollResponse(poll.id, answer.user.id, optionText);
+
+  // Автопривязка по username или отображаемому имени (заполняются в
+  // веб-приложении, либо через /set_usernames и /set_display_names) —
+  // связываем автоматически, /register больше не требуется.
+  const playerName = safeAutoLink(answer.user);
+
+  if (!playerName) {
+    // Не привязан к игроку — не сможем учесть его в делении.
+    try {
+      await bot.telegram.sendMessage(
+        answer.user.id,
+        'Голос учтён, но вы ещё не привязаны к игроку в списке (ни ваш Telegram username, ни отображаемое имя не совпали с записью в списке игроков) — наберите /register Имя Фамилия, иначе я не смогу включить вас в деление на команды.'
+      );
+    } catch (e) { /* пользователь мог не начинать диалог с ботом — не критично */ }
+  }
+});
+
+// ===================================================================
+// Деление на команды + апрув
+// ===================================================================
+
+function chooseTeamCount(n) {
+  if (n <= 10) return 2;
+  return 3; // 11-15 человек — 3 команды по спецификации (лимит 15)
+}
+
+// Голос мог быть подан ДО того, как игроку занесли Telegram username или
+// отображаемое имя (или до деплоя самой этой функции) — тогда в момент
+// голосования привязать автоматически не получилось, а сам poll_answer с
+// этими данными к этому моменту уже не переспросить. Но username и
+// отображаемое имя — статичные свойства профиля, не самого голоса,
+// поэтому можно спросить у Telegram прямо сейчас: кто это, по
+// telegram_user_id (getChatMember), и сверить с полями игроков.
+// Используется как повторная попытка перед делением.
+async function tryLinkByFetchingUsername(telegramUserId) {
+  if (!GROUP_CHAT_ID) return null;
+  try {
+    const member = await bot.telegram.getChatMember(GROUP_CHAT_ID, telegramUserId);
+    return member && member.user ? safeAutoLink(member.user) : null;
+  } catch (e) {
+    return null; // пользователь мог выйти из группы и т.п.
+  }
+}
+
+async function runDivisionForPoll(poll) {
+  const responses = db.getPollResponses(poll.id);
+  const inResponses = responses.filter(r => r.option_text === OPT_IN);
+
+  const roster = db.getRoster();
+  const gameStats = computePlayerGameStats(db.getAllGameDaysForStats());
+
+  const players = [];
+  const notLinked = [];
+  for (const r of inResponses) {
+    let playerName = db.getPlayerNameByTelegramId(r.telegram_user_id);
+    if (!playerName) playerName = await tryLinkByFetchingUsername(r.telegram_user_id);
+    if (!playerName) { notLinked.push(r.telegram_user_id); continue; }
+    const p = roster.find(x => x.name === playerName);
+    if (p) players.push({ ...p, totalRating: playerRating(p, gameStats) });
+  }
+
+  if (players.length < 2) {
+    return { error: `Недостаточно привязанных игроков для деления (${players.length}). Не привязаны: ${notLinked.length}.` };
+  }
+
+  const teamCount = chooseTeamCount(players.length);
+  const teams = optimizeTeamBalance(smartDivide(players, teamCount));
+
+  return { teams, notLinkedCount: notLinked.length, totalIn: inResponses.length };
+}
+
+function formatTeamsMessage(teams, eventDate) {
+  const lines = [`📅 Игра ${eventDate} — предложенный состав:\n`];
+  teams.forEach((team, i) => {
+    lines.push(`Команда ${i + 1} (рейтинг ${team.totalRating.toFixed(1)}):`);
+    team.players
+      .slice()
+      .sort((a, b) => b.totalRating - a.totalRating)
+      .forEach(p => lines.push(`  • ${p.name} (${p.pos1}${p.pos2 ? '/' + p.pos2 : ''}) — ${p.totalRating.toFixed(1)}`));
+    lines.push('');
+  });
+  return lines.join('\n');
+}
+
+async function sendDivisionForApproval(poll) {
+  const result = await runDivisionForPoll(poll);
+  if (result.error) {
+    if (ADMIN_USER_ID) await bot.telegram.sendMessage(ADMIN_USER_ID, `❌ ${result.error}`);
+    return;
+  }
+
+  const divisionId = db.createPendingDivision(poll.id, result.teams);
+  const text = formatTeamsMessage(result.teams, poll.event_date) +
+    (result.notLinkedCount ? `\n⚠️ ${result.notLinkedCount} проголосовавших не привязаны к игроку (/register) и не попали в состав.` : '');
+
+  if (!ADMIN_USER_ID) {
+    console.warn('TELEGRAM_ADMIN_USER_ID не задан — некому отправить апрув.');
+    return;
+  }
+
+  await bot.telegram.sendMessage(ADMIN_USER_ID, text, Markup.inlineKeyboard([
+    Markup.button.callback('✅ Утвердить', `approve_${divisionId}`),
+    Markup.button.callback('🔄 Пересчитать', `regenerate_${divisionId}`),
+  ]));
+}
+
+bot.action(/^approve_(\d+)$/, async ctx => {
+  const id = Number(ctx.match[1]);
+  const division = db.getPendingDivision(id);
+  if (!division) return ctx.answerCbQuery('Не найдено (уже обработано?)');
+
+  db.setPendingDivisionStatus(id, 'approved');
+  const poll = db.db.prepare('SELECT * FROM polls WHERE id = ?').get(division.poll_id);
+
+  db.insertGameDay({
+    date: poll.event_date,
+    teams: division.teams.map((t, i) => ({
+      name: `Команда ${i + 1}`,
+      colorIdx: i,
+      players: t.players.map(p => p.name),
+    })),
+    status: 'approved',
+  });
+
+  await ctx.editMessageReplyMarkup(undefined);
+  await ctx.reply('✅ Утверждено. Состав сохранён. Запись игр откроется в среду в 18:00 (или запустите /start_game вручную для проверки).');
+
+  if (GROUP_CHAT_ID) {
+    const announce = formatTeamsMessage(division.teams, poll.event_date);
+    await bot.telegram.sendMessage(GROUP_CHAT_ID, announce);
+  }
+});
+
+bot.action(/^regenerate_(\d+)$/, async ctx => {
+  const id = Number(ctx.match[1]);
+  const division = db.getPendingDivision(id);
+  if (!division) return ctx.answerCbQuery('Не найдено');
+  db.setPendingDivisionStatus(id, 'rejected');
+
+  const poll = db.db.prepare('SELECT * FROM polls WHERE id = ?').get(division.poll_id);
+  await ctx.editMessageReplyMarkup(undefined);
+  await ctx.reply('🔄 Пересчитываю...');
+  await sendDivisionForApproval(poll);
+  // Примечание: алгоритм детерминирован, поэтому пересчёт обычно даёт тот
+  // же состав. Ручная перестановка — в следующей версии.
+});
+
+// ===================================================================
+// Запись игр (Игра 1, Игра 2, ... — проигравшая команда уступает место)
+// ===================================================================
+
+// Все пары команд (для выбора стартовой пары при 3+ командах).
+function teamPairs(teams) {
+  const pairs = [];
+  for (let i = 0; i < teams.length; i++) {
+    for (let j = i + 1; j < teams.length; j++) pairs.push([i, j]);
+  }
+  return pairs;
+}
+
+async function openGameRecording(chatId) {
+  const day = db.getLatestGameDayByStatus('approved');
+  if (!day) {
+    if (ADMIN_USER_ID) await bot.telegram.sendMessage(ADMIN_USER_ID, '❌ Нет утверждённого состава на сегодня — нечего открывать.');
+    return;
+  }
+
+  if (day.teams.length < 3) {
+    // Только одна возможная пара — выбирать нечего, стартуем сразу.
+    await bot.telegram.sendMessage(chatId, `🟢 Запись игр открыта на ${day.date}!`);
+    await gameRecording.startGameDay(bot, day, chatId);
+    return;
+  }
+
+  // 3+ команды — спрашиваем админа, кто играет первым; остальные команды
+  // (кроме выбранной пары) в Игре 1 отдыхают (при 3 командах — одна).
+  const pairs = teamPairs(day.teams);
+  await bot.telegram.sendMessage(
+    chatId,
+    `🟢 Запись игр на ${day.date} — кто играет первым?`,
+    Markup.inlineKeyboard(
+      pairs.map(([a, b]) => [Markup.button.callback(
+        `${day.teams[a].name} — ${day.teams[b].name}`,
+        `startpair_${day.id}_${a}_${b}`
+      )])
+    )
+  );
+}
+
+bot.action(/^startpair_(\d+)_(\d+)_(\d+)$/, async ctx => {
+  const dayId = Number(ctx.match[1]);
+  const aIdx = Number(ctx.match[2]);
+  const bIdx = Number(ctx.match[3]);
+  const day = db.getGameDayById(dayId);
+  if (!day) return ctx.answerCbQuery('Игровой день не найден (уже начат или удалён?)');
+  await ctx.editMessageReplyMarkup(undefined);
+  await ctx.answerCbQuery('Начинаем!');
+  await gameRecording.startGameDay(bot, day, ctx.chat.id, aIdx, bIdx);
+});
+
+// Ручной запуск для проверки — не ждать среды 18:00.
+// Открыть запись игр может любой участник группы, не только админ —
+// на игре не всегда есть время ждать конкретного человека, чтобы начать
+// фиксировать голы.
+bot.command('start_game', async ctx => {
+  await openGameRecording(ctx.chat.id);
+});
+
+// Завершить день и прислать итоги тоже может любой участник — та же
+// логика, что и у /start_game.
+bot.command('end_day', async ctx => {
+  const day = db.getLatestGameDayByStatus('in_progress') || db.getLatestGameDayByStatus('approved');
+  if (!day) return ctx.reply('Нет открытого игрового дня.');
+
+  const finished = gameRecording.finishGameDay(day.id);
+  if (finished.teams.length < 2 || finished.matches.length === 0) {
+    return ctx.reply('Матчей ещё не было записано — итоги считать не из чего.');
+  }
+
+  const standings = computeStandings(finished);
+  const personal = computeDayPersonalStats(finished);
+  const teamName = idx => (finished.teams[idx] ? finished.teams[idx].name : `Команда ${idx + 1}`);
+
+  const textLines = [`🏆 Итоги ${finished.date}\n`, 'Итоговая таблица:'];
+  standings.forEach((s, i) => {
+    const medal = ['🥇', '🥈', '🥉'][i] || '';
+    textLines.push(`${medal} ${teamName(s.idx)} — И:${s.gp} В:${s.w} Н:${s.d} П:${s.l} Голы:${s.gf}:${s.ga} Очки:${s.pts}`);
+  });
+  textLines.push('\nЛичная статистика:');
+  personal.forEach(p => textLines.push(`${p.name} (${teamName(p.teamIdx)}) — ⚽${p.goals} 🎯${p.assists}`));
+  const text = textLines.join('\n');
+
+  // Картинки (таблица, журнал игр, личная статистика) — отрисовка через
+  // sharp, без браузера (см. imageReport.js). Если по какой-то причине
+  // отрисовка упадёт (например, на сервере нет нужного шрифта) — не
+  // проваливаем /end_day целиком, а откатываемся на текстовый вариант.
+  try {
+    const { standingsImg, matchLogImg, personalImg } = await renderDayReportImages(finished, standings, personal);
+    const media = [
+      { type: 'photo', media: Input.fromBuffer(standingsImg, 'standings.png'), caption: `🏆 Итоги ${finished.date}` },
+      { type: 'photo', media: Input.fromBuffer(matchLogImg, 'matchlog.png') },
+      { type: 'photo', media: Input.fromBuffer(personalImg, 'personal.png') },
+    ];
+    await ctx.replyWithMediaGroup(media);
+    // Раньше только админ мог вызвать /end_day, обычно из личных сообщений
+    // — тогда отдельная отправка в группу была нужна всегда. Теперь любой
+    // участник может вызвать её прямо в группе, и тогда GROUP_CHAT_ID —
+    // это тот же чат: слать второй раз не нужно, будет дублирующий альбом.
+    if (GROUP_CHAT_ID && ctx.chat.id !== GROUP_CHAT_ID) await bot.telegram.sendMediaGroup(GROUP_CHAT_ID, media);
+  } catch (err) {
+    console.error('❌ Не удалось сгенерировать картинки итогов, отправляю текстом:', err);
+    await ctx.reply(text);
+    if (GROUP_CHAT_ID && ctx.chat.id !== GROUP_CHAT_ID) await bot.telegram.sendMessage(GROUP_CHAT_ID, text);
+  }
+});
+
+// Список игровых дней с id — чтобы найти тестовый день (заведённый через
+// /manual_divide + /start_game) и убрать его через /delete_day, не трогая
+// реальную историю.
+bot.command('days', ctx => {
+  if (!isAdmin(ctx)) return ctx.reply('Эта команда только для администратора.');
+  const days = db.getAllGameDaysBrief();
+  if (!days.length) return ctx.reply('Игровых дней пока нет.');
+  const statusIcon = { pending_approval: '🕐 ждёт апрува', approved: '✅ утверждён', in_progress: '🟢 идёт запись', completed: '⚪ завершён' };
+  const lines = days.slice(0, 15).map(d => `#${d.id} — ${d.date} — ${statusIcon[d.status] || d.status}`);
+  return ctx.reply('Игровые дни (последние 15):\n' + lines.join('\n') + '\n\nУдалить — id числом после команды, например: /delete_day 20');
+});
+
+// Полностью убирает игровой день (и его live_matches) из базы — для
+// тестовых прогонов /manual_divide → /start_game → запись голов, чтобы
+// не засорять реальную статистику. Необратимо, подтверждения не просит —
+// id сначала смотрите в /days.
+bot.command('delete_day', ctx => {
+  if (!isAdmin(ctx)) return ctx.reply('Эта команда только для администратора.');
+  const id = parseIdArg(ctx, 'delete_day');
+  if (!id) return ctx.reply('Использование: /delete_day 20 — просто число id (без скобок и «#»), смотрите в /days.');
+  const ok = db.deleteGameDay(id);
+  return ctx.reply(ok ? `✅ Игровой день #${id} удалён.` : `❌ День #${id} не найден.`);
+});
+
+// Переводит игровой день в статус 'approved' — именно его ищет
+// /start_game (db.getLatestGameDayByStatus('approved')). Нужна, когда
+// состав завели НЕ через опрос бота (например, поделили на команды в
+// веб-приложении и сохранили) — такие дни попадают в базу со статусом
+// 'completed' и без этой команды /start_game их просто не видит. Без
+// аргумента — берёт самый свежий день по id; конкретный — id числом,
+// смотрите в /days.
+bot.command('approve_day', ctx => {
+  if (!isAdmin(ctx)) return ctx.reply('Эта команда только для администратора.');
+  const explicitId = parseIdArg(ctx, 'approve_day');
+  const id = explicitId || (db.getAllGameDaysBrief()[0] || {}).id;
+  if (!id) return ctx.reply('Игровых дней пока нет — сначала заведите состав (опрос+деление или веб-приложение).');
+  const day = db.getGameDayById(id);
+  if (!day) return ctx.reply(`❌ День #${id} не найден.`);
+  if (day.teams.length < 2) return ctx.reply(`❌ У дня #${id} задано меньше 2 команд — нечего утверждать.`);
+  db.setGameDayStatus(id, 'approved');
+  return ctx.reply(`✅ День #${id} (${day.date}) утверждён. Теперь можно /start_game.`);
+});
+
+// --- Кнопки записи гола/паса ---
+
+bot.action(/^goal_(\d+)_(\d+)$/, ctx => gameRecording.handleGoalButton(bot, ctx, Number(ctx.match[1]), Number(ctx.match[2])));
+bot.action(/^scorer_(\d+)_(\d+)_(\d+)$/, ctx => gameRecording.handleScorerPick(bot, ctx, Number(ctx.match[1]), Number(ctx.match[2]), Number(ctx.match[3])));
+bot.action(/^assist_(\d+)_(\d+)_(none|\d+)$/, ctx => gameRecording.finalizeGoal(bot, ctx, Number(ctx.match[1]), Number(ctx.match[2]), ctx.match[3]));
+bot.action(/^undo_(\d+)$/, ctx => gameRecording.handleUndo(bot, ctx, Number(ctx.match[1])));
+bot.action(/^cancelpick_(\d+)$/, ctx => gameRecording.handleCancelPick(bot, ctx, Number(ctx.match[1])));
+bot.action(/^endmatch_(\d+)$/, ctx => gameRecording.handleEndMatch(bot, ctx, Number(ctx.match[1])));
+bot.action(/^pk_(\d+)_(none|\d+)$/, ctx => gameRecording.handlePenaltyWinner(bot, ctx, Number(ctx.match[1]), ctx.match[2]));
+
+// ===================================================================
+// Планировщик: понедельник 09:00 — сам публикует опрос (не дожидаясь
+// /poll от админа). Среда 12:00 — закрыть опрос и отправить деление на
+// апрув. Среда 18:00 — открыть запись игр в группе.
+// ===================================================================
+
+// День/время настраиваются на странице /bot-control.html (db.getPollSettings)
+// — по умолчанию понедельник 09:00 (даёт ~2.5 суток на голосование до
+// среды). Тикаем каждую минуту и сверяем текущее время В ЧАСОВОМ ПОЯСЕ
+// TIMEZONE с настройкой — так смена настройки применяется сразу, без
+// рестарта бота (в отличие от фиксированного cron-паттерна).
+function nowPartsInTimezone(timezone) {
+  const parts = new Intl.DateTimeFormat('en-US', {
+    timeZone: timezone, weekday: 'short', hour: '2-digit', minute: '2-digit', hour12: false,
+  }).formatToParts(new Date());
+  const get = type => parts.find(p => p.type === type).value;
+  const weekdayMap = { Mon: 1, Tue: 2, Wed: 3, Thu: 4, Fri: 5, Sat: 6, Sun: 7 };
+  const hour = get('hour') === '24' ? '00' : get('hour'); // Intl иногда отдаёт '24:00' вместо '00:00'
+  return { dayOfWeek: weekdayMap[get('weekday')], time: `${hour}:${get('minute')}` };
+}
+
+let lastPollAutoLaunchMinute = null; // защита от повторного запуска в ту же минуту
+cron.schedule('* * * * *', async () => {
+  if (!GROUP_CHAT_ID) return;
+  const { dayOfWeek, time } = nowPartsInTimezone(TIMEZONE);
+  const settings = db.getPollSettings();
+  if (dayOfWeek !== settings.pollDayOfWeek || time !== settings.pollTime) return;
+  const stamp = `${dayOfWeek}-${time}`;
+  if (lastPollAutoLaunchMinute === stamp) return; // уже сработало в эту минуту
+  lastPollAutoLaunchMinute = stamp;
+  if (db.getLatestOpenPoll()) return; // уже есть открытый (например, админ запустил вручную) — не дублируем
+  const eventDate = await launchPoll();
+  console.log(`Опрос на ${eventDate} опубликован автоматически (по расписанию ${settings.pollTime}).`);
+}, { timezone: TIMEZONE });
+
+cron.schedule('0 12 * * 3', async () => {
+  const poll = db.getLatestOpenPoll();
+  if (!poll) return;
+  db.closePoll(poll.id);
+  await sendDivisionForApproval(poll);
+}, { timezone: TIMEZONE });
+
+cron.schedule('0 18 * * 3', async () => {
+  if (GROUP_CHAT_ID) await openGameRecording(GROUP_CHAT_ID);
+}, { timezone: TIMEZONE });
+
+// Пошагово, а не через один await bot.launch() — чтобы точно видеть, на
+// каком именно шаге что-то идёт не так (getMe / deleteWebhook / старт
+// поллинга). ВАЖНО: промис bot.launch() у Telegraf НЕ резолвится, пока не
+// вызван bot.stop() — это штатное поведение long-polling цикла, а не
+// зависание. Поэтому его нельзя ждать через await — иначе строка про
+// успешный запуск никогда не напечатается, даже если бот уже отвечает.
+(async () => {
+  try {
+    console.log('Шаг 0/3: HTTP-сервер (общая база + веб-приложение)...');
+    startServer();
+    console.log('Шаг 0/3 OK.');
+
+    console.log('Шаг 1/3: getMe()...');
+    const me = await bot.telegram.getMe();
+    console.log(`Шаг 1/3 OK: это бот @${me.username}.`);
+
+    console.log('Шаг 2/3: deleteWebhook() (на случай, если где-то остался вебхук)...');
+    await bot.telegram.deleteWebhook({ drop_pending_updates: false });
+    console.log('Шаг 2/3 OK.');
+
+    // Бонусный бэкфилл привязок: Bot API не даёт получить id всех участников
+    // группы (жёсткое ограничение платформы), но админов — даёт. Сопоставляем
+    // их с игроками сразу при старте, не дожидаясь, пока они сами что-то
+    // напишут боту — те, кто не админ, привяжутся пассивно (см. bot.use()
+    // выше) при первом же взаимодействии с ботом.
+    if (GROUP_CHAT_ID) {
+      try {
+        const admins = await bot.telegram.getChatAdministrators(GROUP_CHAT_ID);
+        let linked = 0;
+        admins.forEach(a => {
+          const wasLinked = a.user && !a.user.is_bot && db.getPlayerNameByTelegramId(a.user.id);
+          if (!wasLinked && safeAutoLink(a.user)) linked++;
+        });
+        if (linked) console.log(`Бэкфилл привязок по админам группы: ${linked}.`);
+      } catch (e) {
+        console.error('Бэкфилл привязок по админам группы упал (не критично):', e.message);
+      }
+    }
+
+    console.log('Шаг 3/3: bot.launch() — старт поллинга (промис не резолвится, пока бот работает — это нормально, не ждём его)...');
+    bot.launch().catch(err => {
+      console.error('❌ bot.launch() завершился с ошибкой во время работы:', err);
+      process.exit(1);
+    });
+    console.log('Шаг 3/3 OK. Бот запущен и слушает Telegram (long polling).');
+  } catch (err) {
+    console.error('❌ Запуск бота провалился:', err);
+    process.exit(1);
+  }
+})();
+
+process.once('SIGINT', () => bot.stop('SIGINT'));
+process.once('SIGTERM', () => bot.stop('SIGTERM'));
+
+// Диагностическая метка деплоя — если в логах есть эта строка, значит
+// Railway реально забрал самый свежий коммит из ветки, а не закешировал
+// старый билд.
+console.log('BUILD MARKER: fix-fk-migration (' + new Date().toISOString() + ')');

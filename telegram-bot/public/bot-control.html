@@ -1,0 +1,751 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Football Heroes — Управление ботом</title>
+<style>
+    * { box-sizing: border-box; }
+    body {
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+        min-height: 100vh;
+        padding: 20px;
+        margin: 0;
+    }
+    .container { max-width: 1100px; margin: 0 auto; background: white; border-radius: 12px; box-shadow: 0 20px 60px rgba(0,0,0,0.3); overflow: hidden; }
+    .header { background: linear-gradient(135deg, #1e3c72, #2a5298); color: white; padding: 24px 30px; text-align: center; }
+    .header h1 { margin: 0; font-size: 24px; }
+    .header p { margin: 6px 0 0; opacity: .85; font-size: 13px; }
+    .header a { color: #ffe27a; text-decoration: none; font-size: 13px; }
+    section { padding: 24px 30px; border-bottom: 1px solid #eee; }
+    section:last-child { border-bottom: none; }
+    h2 { color: #1e3c72; font-size: 18px; margin: 0 0 6px; }
+    .hint { color: #777; font-size: 12.5px; margin: 0 0 16px; line-height: 1.5; }
+    label { font-weight: 600; font-size: 13px; color: #333; display: block; margin-bottom: 4px; }
+    input[type=text], input[type=time], input[type=date], input[type=number], select, textarea {
+        width: 100%; padding: 9px 11px; border: 1px solid #ddd; border-radius: 6px; font-size: 14px; background: #fff;
+    }
+    .row { display: flex; gap: 14px; flex-wrap: wrap; align-items: flex-end; }
+    .row > div { flex: 1; min-width: 140px; }
+    .btn-primary, .btn-secondary, .btn-danger {
+        border: none; border-radius: 6px; padding: 10px 18px; font-size: 13.5px; font-weight: 700; cursor: pointer; white-space: nowrap;
+    }
+    .btn-primary { background: #1e3c72; color: #fff; }
+    .btn-primary:hover { background: #16305c; }
+    .btn-secondary { background: #eef1f8; color: #1e3c72; }
+    .btn-secondary:hover { background: #e2e7f2; }
+    .btn-danger { background: #fdecea; color: #c62828; }
+    .btn-danger:hover { background: #fbdad7; }
+    .msg { margin-top: 10px; padding: 10px 14px; border-radius: 6px; font-size: 13.5px; }
+    .msg.ok { background: #e8f5e9; color: #2e7d32; }
+    .msg.err { background: #fdecea; color: #c62828; }
+
+    .player-checklist { display: flex; flex-wrap: wrap; gap: 6px; max-height: 320px; overflow-y: auto; padding: 4px 0; }
+    .player-chip { display: flex; align-items: center; gap: 6px; background: #f6f7fb; border: 1px solid #e2e5ee; border-radius: 20px; padding: 6px 12px; font-size: 13px; cursor: pointer; user-select: none; }
+    .player-chip.checked { background: #1e3c72; color: #fff; border-color: #1e3c72; }
+    .player-chip .rt { opacity: .7; font-size: 11px; }
+
+    .teams-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 14px; margin-top: 16px; }
+    .team-card { border-radius: 8px; overflow: hidden; border: 1px solid #e5e5e5; }
+    .team-header { padding: 10px 14px; font-weight: 800; font-size: 14px; }
+    .team-body { padding: 10px; background: #fafafa; min-height: 40px; }
+    .player-item { display: flex; justify-content: space-between; align-items: center; background: #fff; border: 1px solid #e5e5e5; border-left: 4px solid #999; border-radius: 5px; padding: 7px 10px; margin-bottom: 6px; font-size: 13px; cursor: grab; }
+    .player-item.dragging { opacity: .35; }
+    .team-body.drop-target { outline: 2px dashed #999; outline-offset: -4px; }
+    .rating-pill { background: rgba(0,0,0,.06); border-radius: 10px; padding: 2px 7px; font-size: 11.5px; font-weight: 700; }
+
+    table.mini { width: 100%; border-collapse: collapse; font-size: 13px; margin-top: 10px; }
+    table.mini th { text-align: left; background: #1e3c72; color: #fff; padding: 7px 8px; font-size: 11px; text-transform: uppercase; letter-spacing: .4px; }
+    table.mini td { padding: 7px 8px; border-bottom: 1px solid #eee; }
+
+    .two-team-row { display: flex; gap: 16px; align-items: flex-start; margin-top: 12px; flex-wrap: wrap; }
+    .team-panel { flex: 1; min-width: 260px; border: 1px solid #e5e5e5; border-radius: 8px; padding: 14px; background: #fafafa; }
+    .score-big { font-size: 34px; font-weight: 900; color: #1e3c72; text-align: center; margin: 8px 0; }
+    .goal-row { display: flex; align-items: center; gap: 6px; background: #fff; border: 1px solid #e5e5e5; border-radius: 5px; padding: 6px 8px; margin-bottom: 6px; font-size: 12.5px; }
+    .goal-row .x { margin-left: auto; cursor: pointer; color: #c62828; font-weight: 800; }
+    .vs-sep { align-self: center; font-size: 22px; font-weight: 900; color: #999; padding-top: 40px; }
+    .empty-state { text-align: center; color: #999; padding: 20px; font-size: 13px; }
+</style>
+</head>
+<body>
+
+<div class="container">
+    <div class="header">
+        <h1>⚙️ Управление ботом</h1>
+        <p>Football Heroes — расписание, деление на команды, запись результатов</p>
+        <p><a href="/">← Веб-приложение</a> · <a href="/rating.html">Рейтинг</a> · <a href="/how-it-works.html">Как это работает</a></p>
+    </div>
+
+    <section>
+        <h2>📅 Расписание автозапуска опроса</h2>
+        <p class="hint">Бот сам публикует опрос «Буду / Не смогу» в указанные день недели и время. Изменение применяется сразу, без перезапуска бота.</p>
+        <div class="row">
+            <div>
+                <label>День недели</label>
+                <select id="pollDay">
+                    <option value="1">Понедельник</option>
+                    <option value="2">Вторник</option>
+                    <option value="3">Среда</option>
+                    <option value="4">Четверг</option>
+                    <option value="5">Пятница</option>
+                    <option value="6">Суббота</option>
+                    <option value="7">Воскресенье</option>
+                </select>
+            </div>
+            <div>
+                <label>Время</label>
+                <input type="time" id="pollTime" value="09:00">
+            </div>
+        </div>
+        <div class="row" style="margin-top:14px;">
+            <div>
+                <label>Текст опроса</label>
+                <input type="text" id="pollQuestion" maxlength="300" placeholder="⚽ Футбол в среду в 19:00 (до 15 человек)">
+            </div>
+            <div style="flex:0;">
+                <button class="btn-primary" onclick="saveSettings()">💾 Сохранить</button>
+            </div>
+        </div>
+        <div id="settingsMsg"></div>
+    </section>
+
+    <section>
+        <h2>👥 Участники и деление на команды</h2>
+        <p class="hint">Отметьте игроков «Буду сегодня», разделите на команды, при желании перетащите игрока между командами мышкой, затем сохраните — день сразу будет готов к записи игр (не нужна отдельная команда /approve_day в боте).</p>
+        <div class="row" style="margin-bottom:10px;">
+            <div style="flex:0;"><button class="btn-secondary" onclick="checkAll(true)">Выбрать всех</button></div>
+            <div style="flex:0;"><button class="btn-secondary" onclick="checkAll(false)">Снять всех</button></div>
+            <div style="max-width:160px;">
+                <label>Команд</label>
+                <select id="teamCount"><option value="2">2</option><option value="3" selected>3</option></select>
+            </div>
+            <div style="flex:0;"><button class="btn-primary" onclick="runDivide()">⚡ Разделить</button></div>
+        </div>
+        <div id="playerChecklist" class="player-checklist"><div class="empty-state">Загрузка…</div></div>
+
+        <div id="divisionResult"></div>
+
+        <div class="row" style="margin-top:16px;" id="saveDayRow" hidden>
+            <div style="max-width:200px;">
+                <label>Дата игры</label>
+                <input type="date" id="newDayDate">
+            </div>
+            <div style="flex:0;"><button class="btn-primary" onclick="saveDivisionAsDay()">💾 Сохранить как игровой день</button></div>
+        </div>
+        <div id="divisionMsg"></div>
+    </section>
+
+    <section>
+        <h2>🥅 Запись результатов игры</h2>
+        <p class="hint">Выберите игровой день, затем добавляйте мини-игры: отмечайте голы кнопкой у нужной команды (с автором и, если был, пасом), для гола в свои ворота — кнопка «автогол».</p>
+        <div class="row">
+            <div>
+                <label>Игровой день</label>
+                <select id="daySelect" onchange="onDaySelected()"><option value="">Загрузка…</option></select>
+            </div>
+        </div>
+
+        <div id="existingMatches"></div>
+
+        <div id="matchForm" hidden>
+            <div class="row" style="margin-top:14px;">
+                <div>
+                    <label>Команда А</label>
+                    <select id="teamASelect" onchange="renderMatchForm()"></select>
+                </div>
+                <div>
+                    <label>Команда Б</label>
+                    <select id="teamBSelect" onchange="renderMatchForm()"></select>
+                </div>
+            </div>
+
+            <div class="two-team-row">
+                <div class="team-panel">
+                    <div style="font-weight:800;" id="teamAName">Команда А</div>
+                    <div class="score-big" id="scoreADisplay">0</div>
+                    <div id="goalsAList"></div>
+                    <button class="btn-secondary" style="width:100%;margin-bottom:6px;" onclick="addGoal('A', false)">⚽ Добавить гол</button>
+                    <button class="btn-secondary" style="width:100%;" onclick="addGoal('A', true)">🔄 Автогол соперника (гол нам)</button>
+                </div>
+                <div class="vs-sep">:</div>
+                <div class="team-panel">
+                    <div style="font-weight:800;" id="teamBName">Команда Б</div>
+                    <div class="score-big" id="scoreBDisplay">0</div>
+                    <div id="goalsBList"></div>
+                    <button class="btn-secondary" style="width:100%;margin-bottom:6px;" onclick="addGoal('B', false)">⚽ Добавить гол</button>
+                    <button class="btn-secondary" style="width:100%;" onclick="addGoal('B', true)">🔄 Автогол соперника (гол нам)</button>
+                </div>
+            </div>
+
+            <div id="penaltyBlock" class="row" style="margin-top:14px;" hidden>
+                <div style="flex:0;">
+                    <label><input type="checkbox" id="penaltyCheck" onchange="renderMatchForm()" style="width:auto;"> Ничья решена по пенальти</label>
+                </div>
+                <div id="penaltyWinnerRow" style="max-width:220px;" hidden>
+                    <label>Победитель по пенальти</label>
+                    <select id="penaltyWinner"></select>
+                </div>
+            </div>
+
+            <div class="row" style="margin-top:16px;">
+                <div style="flex:0;"><button class="btn-primary" onclick="submitMatch()">➕ Сохранить игру</button></div>
+                <div style="flex:0;"><button class="btn-danger" onclick="removeLastMatch()">↩️ Удалить последнюю игру дня</button></div>
+            </div>
+            <div id="matchMsg"></div>
+        </div>
+    </section>
+</div>
+
+<script>
+'use strict';
+
+// ===================================================================
+// Общее состояние + портированная логика (рейтинг/статистика/деление —
+// 1:1 с core/*.js и public/index.html, чтобы цифры не расходились).
+// ===================================================================
+let roster = [];
+let gameDays = [];
+let gameStatsCache = {};
+let currentDivisionTeams = null; // результат последнего деления (для сохранения/drag&drop)
+
+const ATT_WEIGHT = 0.6;
+const GOALS_ASSISTS_WEIGHT = 0.05;
+
+function playerGoalAssistFactor(name) {
+    const s = gameStatsCache[name];
+    if (!s || !s.games) return null;
+    const perGame = (s.goals + s.assists) / s.games;
+    return Math.min(10, Math.max(0, perGame * 2));
+}
+function playerRating(p) {
+    const otherWeight = (1 - ATT_WEIGHT) / 3;
+    const skillRating = p.att * ATT_WEIGHT + (p.gk + p.def + p.end) * otherWeight;
+    const gaFactor = playerGoalAssistFactor(p.name);
+    if (gaFactor === null) return skillRating;
+    return skillRating * (1 - GOALS_ASSISTS_WEIGHT) + gaFactor * GOALS_ASSISTS_WEIGHT;
+}
+function computePlayerGameStats() {
+    const stats = {};
+    const bump = (name, goals, assists) => {
+        if (!stats[name]) stats[name] = { goals: 0, assists: 0, games: 0 };
+        stats[name].goals += goals; stats[name].assists += assists; stats[name].games += 1;
+    };
+    gameDays.forEach(day => {
+        if (day.legacy) {
+            (day.legacyStats || []).forEach(team => team.forEach(p => bump(p.name, p.goals, p.assists)));
+        } else if ((day.matches || []).length === 0 && Array.isArray(day.personalStats)) {
+            day.personalStats.forEach(p => bump(p.name, p.goals, p.assists));
+        } else {
+            const seenToday = new Set();
+            const touch = name => { if (!stats[name]) stats[name] = { goals: 0, assists: 0, games: 0 }; if (!seenToday.has(name)) { stats[name].games += 1; seenToday.add(name); } };
+            (day.matches || []).forEach(m => {
+                [...(m.scorersA || []), ...(m.scorersB || [])].forEach(s => {
+                    touch(s.name); stats[s.name].goals += s.goals;
+                    if (s.assist) { touch(s.assist); stats[s.assist].assists += s.goals; }
+                });
+            });
+            (day.teams || []).forEach(t => t.players.forEach(name => {
+                if (!seenToday.has(name)) { if (!stats[name]) stats[name] = { goals: 0, assists: 0, games: 0 }; stats[name].games += 1; seenToday.add(name); }
+            }));
+        }
+    });
+    return stats;
+}
+
+// --- Деление (портировано 1:1 из src/core/division.js) ---
+function smartDivide(players, teamCount) {
+    const baseSize = Math.floor(players.length / teamCount);
+    const extraSlots = players.length % teamCount;
+    const gkPrimary = players.filter(p => p.pos1 === 'GK').sort((a, b) => b.totalRating - a.totalRating);
+    const gkSecondary = players.filter(p => p.pos2 === 'GK' && p.pos1 !== 'GK').sort((a, b) => b.totalRating - a.totalRating);
+    const positionGroups = {};
+    players.forEach(p => {
+        if (p.pos1 !== 'GK') {
+            const key = p.pos2 ? `${p.pos1}/${p.pos2}` : p.pos1;
+            if (!positionGroups[key]) positionGroups[key] = [];
+            positionGroups[key].push(p);
+        }
+    });
+    Object.keys(positionGroups).forEach(key => positionGroups[key].sort((a, b) => b.totalRating - a.totalRating));
+    const teams = Array(teamCount).fill(null).map((_, i) => ({ players: [], totalRating: 0, def: 0, mid: 0, st: 0, gk: 0, positionSets: {}, slotsLeft: baseSize + (i < extraSlots ? 1 : 0) }));
+    const usedPlayers = new Set();
+    for (let i = 0; i < Math.min(teamCount, gkPrimary.length); i++) {
+        const gk = gkPrimary[i];
+        teams[i].players.push(gk); teams[i].totalRating += gk.totalRating; teams[i].slotsLeft--; teams[i].gk++; usedPlayers.add(gk);
+    }
+    for (let i = gkPrimary.length; i < teamCount; i++) {
+        for (const gk of gkSecondary) {
+            if (!usedPlayers.has(gk)) { teams[i].players.push(gk); teams[i].totalRating += gk.totalRating; teams[i].slotsLeft--; teams[i].gk++; usedPlayers.add(gk); break; }
+        }
+    }
+    const positionKeys = Object.keys(positionGroups).sort((a, b) => positionGroups[b].length - positionGroups[a].length);
+    for (const posKey of positionKeys) {
+        for (const player of positionGroups[posKey]) {
+            if (usedPlayers.has(player)) continue;
+            let bestTeam = -1, bestScore = -Infinity;
+            for (let i = 0; i < teamCount; i++) {
+                if (teams[i].slotsLeft <= 0) continue;
+                const currentCount = teams[i].positionSets[posKey] || 0;
+                if (currentCount >= 3) continue;
+                const score = -(teams[i].totalRating) * 1000 - currentCount * 100 + teams[i].slotsLeft;
+                if (bestTeam === -1 || score > bestScore) { bestTeam = i; bestScore = score; }
+            }
+            if (bestTeam !== -1) {
+                const team = teams[bestTeam];
+                team.players.push(player); team.totalRating += player.totalRating; team.slotsLeft--;
+                if (player.pos1 === 'DEF') team.def++; else if (player.pos1 === 'MID') team.mid++; else if (player.pos1 === 'ST') team.st++;
+                team.positionSets[posKey] = (team.positionSets[posKey] || 0) + 1;
+                usedPlayers.add(player);
+            }
+        }
+    }
+    players.forEach(player => {
+        if (usedPlayers.has(player)) return;
+        let bestTeam = -1;
+        for (let i = 0; i < teamCount; i++) { if (teams[i].slotsLeft <= 0) continue; if (bestTeam === -1 || teams[i].totalRating < teams[bestTeam].totalRating) bestTeam = i; }
+        if (bestTeam !== -1) {
+            const team = teams[bestTeam];
+            team.players.push(player); team.totalRating += player.totalRating; team.slotsLeft--;
+            if (player.pos1 === 'DEF') team.def++; else if (player.pos1 === 'MID') team.mid++; else if (player.pos1 === 'ST') team.st++;
+            usedPlayers.add(player);
+        }
+    });
+    return teams;
+}
+function optimizeTeamBalance(teams) {
+    let improved = true, iterations = 0;
+    const maxIterations = 50;
+    while (improved && iterations < maxIterations) {
+        improved = false; iterations++;
+        for (let i = 0; i < teams.length; i++) {
+            const hasSTinTeam = teams[i].players.some(p => p.pos1 === 'ST' || p.pos2 === 'ST');
+            if (!hasSTinTeam) {
+                for (let j = 0; j < teams.length; j++) {
+                    if (i === j) continue;
+                    const stPlayerIdx = teams[j].players.findIndex(p => p.pos1 === 'ST' || p.pos2 === 'ST');
+                    if (stPlayerIdx !== -1) {
+                        const stPlayer = teams[j].players[stPlayerIdx];
+                        for (let p = 0; p < teams[i].players.length; p++) {
+                            const player = teams[i].players[p];
+                            if (player.pos1 === 'GK') continue;
+                            teams[i].players[p] = stPlayer; teams[j].players[stPlayerIdx] = player;
+                            teams[i].totalRating = teams[i].totalRating - player.totalRating + stPlayer.totalRating;
+                            teams[j].totalRating = teams[j].totalRating - stPlayer.totalRating + player.totalRating;
+                            improved = true; break;
+                        }
+                        if (improved) break;
+                    }
+                }
+                if (improved) break;
+            }
+        }
+        if (improved) continue;
+        for (let i = 0; i < teams.length; i++) {
+            for (let j = i + 1; j < teams.length; j++) {
+                const team1 = teams[i], team2 = teams[j];
+                if (Math.abs(team1.totalRating - team2.totalRating) < 0.1) continue;
+                const strongTeam = team1.totalRating > team2.totalRating ? team1 : team2;
+                const weakTeam = team1.totalRating > team2.totalRating ? team2 : team1;
+                let bestSwap = null, bestImprovement = 0;
+                for (let p1 = 0; p1 < strongTeam.players.length; p1++) {
+                    const player1 = strongTeam.players[p1];
+                    const pos1 = player1.pos2 ? `${player1.pos1}/${player1.pos2}` : player1.pos1;
+                    if (player1.pos1 === 'GK') continue;
+                    if ((player1.pos1 === 'ST' || player1.pos2 === 'ST') && strongTeam.players.filter(p => p.pos1 === 'ST' || p.pos2 === 'ST').length === 1) continue;
+                    for (let p2 = 0; p2 < weakTeam.players.length; p2++) {
+                        const player2 = weakTeam.players[p2];
+                        const pos2 = player2.pos2 ? `${player2.pos1}/${player2.pos2}` : player2.pos1;
+                        if (player2.pos1 === 'GK') continue;
+                        if ((player2.pos1 === 'ST' || player2.pos2 === 'ST') && weakTeam.players.filter(p => p.pos1 === 'ST' || p.pos2 === 'ST').length === 1) continue;
+                        if (pos1 !== pos2) continue;
+                        const currentDiff = Math.abs(strongTeam.totalRating - weakTeam.totalRating);
+                        const newStrongRating = strongTeam.totalRating - player1.totalRating + player2.totalRating;
+                        const newWeakRating = weakTeam.totalRating - player2.totalRating + player1.totalRating;
+                        const newDiff = Math.abs(newStrongRating - newWeakRating);
+                        const improvement = currentDiff - newDiff;
+                        if (improvement > bestImprovement) { bestImprovement = improvement; bestSwap = { p1, p2, player1, player2 }; }
+                    }
+                }
+                if (bestSwap && bestImprovement > 0.01) {
+                    const { p1, p2, player1, player2 } = bestSwap;
+                    strongTeam.players[p1] = player2; weakTeam.players[p2] = player1;
+                    strongTeam.totalRating = strongTeam.totalRating - player1.totalRating + player2.totalRating;
+                    weakTeam.totalRating = weakTeam.totalRating - player2.totalRating + player1.totalRating;
+                    improved = true; break;
+                }
+            }
+            if (improved) break;
+        }
+    }
+    return teams;
+}
+
+// --- Цвета манишек (портировано из public/index.html) ---
+const TEAM_COLORS = [
+    { bg: '#c62828', text: '#ffffff' },
+    { bg: '#aeea00', text: '#1a1a1a' },
+    { bg: '#ffffff', text: '#1a1a1a', border: '#999' },
+];
+function assignJerseyColorIdx(playerLists) {
+    const nameOf = p => (typeof p === 'string' ? p : (p && p.name));
+    const idxs = new Array(playerLists.length);
+    const silchenkoTeam = playerLists.findIndex(players => (players || []).some(p => nameOf(p) === 'Олег Сильченко'));
+    if (silchenkoTeam === -1) { playerLists.forEach((_, i) => { idxs[i] = i % TEAM_COLORS.length; }); return idxs; }
+    idxs[silchenkoTeam] = 2;
+    const rest = [0, 1]; let ri = 0;
+    playerLists.forEach((_, i) => { if (i !== silchenkoTeam) idxs[i] = rest[ri++ % rest.length]; });
+    return idxs;
+}
+
+function nextWednesday(from) {
+    const d = new Date(from || new Date());
+    const day = d.getDay();
+    let diff = (3 - day + 7) % 7;
+    if (diff === 0) diff = 7;
+    d.setDate(d.getDate() + diff);
+    return d.toISOString().slice(0, 10);
+}
+function formatDate(dateStr) {
+    const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(dateStr);
+    return m ? `${m[3]}.${m[2]}.${m[1]}` : dateStr;
+}
+
+// ===================================================================
+// Загрузка данных
+// ===================================================================
+async function loadAll() {
+    const [stateRes, settingsRes] = await Promise.all([fetch('/api/state'), fetch('/api/settings')]);
+    const state = await stateRes.json();
+    roster = state.roster || [];
+    gameDays = state.gameDays || [];
+    roster.forEach(p => { p.gk = Number(p.gk) || 0; p.def = Number(p.def) || 0; p.att = Number(p.att) || 0; p.end = Number(p.end) || 0; });
+    gameStatsCache = computePlayerGameStats();
+
+    const settings = await settingsRes.json();
+    document.getElementById('pollDay').value = settings.pollDayOfWeek;
+    document.getElementById('pollTime').value = settings.pollTime;
+    document.getElementById('pollQuestion').value = settings.pollQuestion;
+
+    renderChecklist();
+    renderDaySelect();
+    document.getElementById('newDayDate').value = nextWednesday();
+}
+
+async function saveFullState() {
+    const res = await fetch('/api/state', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ roster, gameDays }),
+    });
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+}
+
+// ===================================================================
+// Секция 1: настройки опроса
+// ===================================================================
+async function saveSettings() {
+    const msg = document.getElementById('settingsMsg');
+    try {
+        const pollDayOfWeek = Number(document.getElementById('pollDay').value);
+        const pollTime = document.getElementById('pollTime').value;
+        const pollQuestion = document.getElementById('pollQuestion').value.trim();
+        if (!pollQuestion) throw new Error('Текст опроса не может быть пустым.');
+        const res = await fetch('/api/settings', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ pollDayOfWeek, pollTime, pollQuestion }),
+        });
+        if (!res.ok) throw new Error((await res.json()).error || ('HTTP ' + res.status));
+        msg.innerHTML = '<div class="msg ok">✓ Сохранено — применится в течение минуты, без перезапуска бота.</div>';
+    } catch (e) {
+        msg.innerHTML = '<div class="msg err">❌ ' + e.message + '</div>';
+    }
+}
+
+// ===================================================================
+// Секция 2: участники + деление
+// ===================================================================
+function renderChecklist() {
+    const container = document.getElementById('playerChecklist');
+    const sorted = [...roster].sort((a, b) => playerRating(b) - playerRating(a));
+    if (sorted.length === 0) { container.innerHTML = '<div class="empty-state">Список игроков пуст.</div>'; return; }
+    container.innerHTML = sorted.map(p => `
+        <div class="player-chip" data-name="${p.name.replace(/"/g, '&quot;')}" onclick="toggleChip(this)">
+            <input type="checkbox" style="pointer-events:none;">
+            <span>${p.name}</span>
+            <span class="rt">${playerRating(p).toFixed(2)}</span>
+        </div>
+    `).join('');
+}
+function toggleChip(el) {
+    el.classList.toggle('checked');
+    el.querySelector('input').checked = el.classList.contains('checked');
+}
+function checkAll(state) {
+    document.querySelectorAll('.player-chip').forEach(el => {
+        el.classList.toggle('checked', state);
+        el.querySelector('input').checked = state;
+    });
+}
+
+function runDivide() {
+    const msg = document.getElementById('divisionMsg');
+    msg.innerHTML = '';
+    const names = [...document.querySelectorAll('.player-chip.checked')].map(el => el.dataset.name);
+    const teamCount = Number(document.getElementById('teamCount').value);
+    if (names.length < teamCount) {
+        msg.innerHTML = `<div class="msg err">❌ Отмечено ${names.length} игроков — мало для ${teamCount} команд.</div>`;
+        return;
+    }
+    const players = names.map(name => {
+        const p = roster.find(r => r.name === name);
+        return { ...p, totalRating: playerRating(p) };
+    });
+    currentDivisionTeams = optimizeTeamBalance(smartDivide(players, teamCount));
+    renderDivisionResult();
+    document.getElementById('saveDayRow').hidden = false;
+}
+
+function renderDivisionResult() {
+    const container = document.getElementById('divisionResult');
+    const colorIdxs = assignJerseyColorIdx(currentDivisionTeams.map(t => t.players));
+    container.innerHTML = `<div class="teams-grid" id="teamsGrid">` +
+        currentDivisionTeams.map((team, idx) => renderTeamCard(team, idx, colorIdxs[idx])).join('') +
+        `</div>`;
+    attachDragHandlers();
+}
+function renderTeamCard(team, idx, colorIdx) {
+    const color = TEAM_COLORS[colorIdx % TEAM_COLORS.length];
+    const accent = color.border || color.bg;
+    const sorted = [...team.players].sort((a, b) => b.totalRating - a.totalRating);
+    return `
+        <div class="team-card" data-team-idx="${idx}">
+            <div class="team-header" style="background:${color.bg};color:${color.text};${color.border ? `border-bottom:3px solid ${color.border};` : ''}">Команда ${idx + 1} — ${team.totalRating.toFixed(2)}</div>
+            <div class="team-body" data-team-idx="${idx}">
+                ${sorted.map(p => `
+                    <div class="player-item" draggable="true" data-player-name="${p.name.replace(/"/g, '&quot;')}" style="border-left-color:${accent};">
+                        <span>${p.name}</span>
+                        <span class="rating-pill">${p.totalRating.toFixed(2)}</span>
+                    </div>
+                `).join('')}
+            </div>
+        </div>
+    `;
+}
+function attachDragHandlers() {
+    const grid = document.getElementById('teamsGrid');
+    if (!grid) return;
+    grid.querySelectorAll('.player-item').forEach(el => {
+        el.addEventListener('dragstart', e => { el.classList.add('dragging'); e.dataTransfer.setData('text/plain', el.dataset.playerName); });
+        el.addEventListener('dragend', () => el.classList.remove('dragging'));
+    });
+    grid.querySelectorAll('.team-body').forEach(body => {
+        body.addEventListener('dragover', e => { e.preventDefault(); body.classList.add('drop-target'); });
+        body.addEventListener('dragleave', () => body.classList.remove('drop-target'));
+        body.addEventListener('drop', e => {
+            e.preventDefault();
+            body.classList.remove('drop-target');
+            const name = e.dataTransfer.getData('text/plain');
+            const toIdx = Number(body.dataset.teamIdx);
+            const fromIdx = currentDivisionTeams.findIndex(t => t.players.some(p => p.name === name));
+            if (fromIdx === -1 || fromIdx === toIdx) return;
+            const pIdx = currentDivisionTeams[fromIdx].players.findIndex(p => p.name === name);
+            const [player] = currentDivisionTeams[fromIdx].players.splice(pIdx, 1);
+            currentDivisionTeams[fromIdx].totalRating -= player.totalRating;
+            currentDivisionTeams[toIdx].players.push(player);
+            currentDivisionTeams[toIdx].totalRating += player.totalRating;
+            renderDivisionResult();
+        });
+    });
+}
+
+async function saveDivisionAsDay() {
+    const msg = document.getElementById('divisionMsg');
+    const date = document.getElementById('newDayDate').value;
+    if (!currentDivisionTeams) { msg.innerHTML = '<div class="msg err">❌ Сначала разделите на команды.</div>'; return; }
+    if (!date) { msg.innerHTML = '<div class="msg err">❌ Укажите дату.</div>'; return; }
+    try {
+        const newDay = {
+            id: Date.now(),
+            date,
+            legacy: false,
+            status: 'approved',
+            teams: currentDivisionTeams.map((t, i) => ({ name: `Команда ${i + 1}`, colorIdx: i, players: t.players.map(p => p.name) })),
+            matches: [],
+        };
+        gameDays.push(newDay);
+        await saveFullState();
+        msg.innerHTML = `<div class="msg ok">✓ День ${formatDate(date)} сохранён (статус approved) — можно сразу /start_game в боте, или запишите результаты ниже.</div>`;
+        renderDaySelect();
+        document.getElementById('daySelect').value = String(newDay.id);
+        onDaySelected();
+    } catch (e) {
+        msg.innerHTML = '<div class="msg err">❌ ' + e.message + '</div>';
+    }
+}
+
+// ===================================================================
+// Секция 3: запись результатов игры
+// ===================================================================
+let goalsA = []; // { player, assist } | { ownGoal: true }
+let goalsB = [];
+
+function renderDaySelect() {
+    const select = document.getElementById('daySelect');
+    const eligible = gameDays.filter(d => !d.legacy && (d.teams || []).length >= 2)
+        .sort((a, b) => b.id - a.id);
+    if (eligible.length === 0) { select.innerHTML = '<option value="">Нет доступных дней</option>'; document.getElementById('matchForm').hidden = true; return; }
+    select.innerHTML = eligible.map(d => `<option value="${d.id}">${formatDate(d.date)} (id ${d.id}, ${d.status || '—'})</option>`).join('');
+    onDaySelected();
+}
+
+function currentDay() {
+    const id = Number(document.getElementById('daySelect').value);
+    return gameDays.find(d => d.id === id) || null;
+}
+
+function onDaySelected() {
+    const day = currentDay();
+    const existingContainer = document.getElementById('existingMatches');
+    if (!day) { document.getElementById('matchForm').hidden = true; existingContainer.innerHTML = ''; return; }
+
+    existingContainer.innerHTML = (day.matches || []).length ? `
+        <table class="mini">
+            <thead><tr><th>#</th><th>Команда А</th><th>Счёт</th><th>Команда Б</th></tr></thead>
+            <tbody>
+                ${day.matches.map((m, i) => `<tr><td>${i + 1}</td><td>${(day.teams[m.teamAIdx] || {}).name || '?'}</td><td>${m.scoreA}:${m.scoreB}</td><td>${(day.teams[m.teamBIdx] || {}).name || '?'}</td></tr>`).join('')}
+            </tbody>
+        </table>
+    ` : '<div class="empty-state">Игр в этот день пока не записано.</div>';
+
+    const teamASelect = document.getElementById('teamASelect');
+    const teamBSelect = document.getElementById('teamBSelect');
+    const opts = day.teams.map((t, i) => `<option value="${i}">${t.name}</option>`).join('');
+    teamASelect.innerHTML = opts;
+    teamBSelect.innerHTML = opts;
+    if (day.teams.length > 1) teamBSelect.value = '1';
+
+    goalsA = []; goalsB = [];
+    document.getElementById('matchForm').hidden = false;
+    renderMatchForm();
+}
+
+function addGoal(side, isOwnGoal) {
+    const day = currentDay();
+    if (!day) return;
+    const arr = side === 'A' ? goalsA : goalsB;
+    arr.push(isOwnGoal ? { ownGoal: true } : { player: '', assist: '' });
+    renderMatchForm();
+}
+function removeGoal(side, idx) {
+    (side === 'A' ? goalsA : goalsB).splice(idx, 1);
+    renderMatchForm();
+}
+function updateGoalField(side, idx, field, value) {
+    (side === 'A' ? goalsA : goalsB)[idx][field] = value;
+}
+
+function renderMatchForm() {
+    const day = currentDay();
+    if (!day) return;
+    const teamAIdx = Number(document.getElementById('teamASelect').value);
+    const teamBIdx = Number(document.getElementById('teamBSelect').value);
+    const teamA = day.teams[teamAIdx], teamB = day.teams[teamBIdx];
+    document.getElementById('teamAName').textContent = teamA ? teamA.name : '—';
+    document.getElementById('teamBName').textContent = teamB ? teamB.name : '—';
+    document.getElementById('scoreADisplay').textContent = goalsA.length;
+    document.getElementById('scoreBDisplay').textContent = goalsB.length;
+
+    const playerOpts = players => players.map(n => `<option value="${n}">${n}</option>`).join('');
+
+    const renderList = (side, arr, teamPlayers) => arr.map((g, i) => {
+        if (g.ownGoal) return `<div class="goal-row"><span>🔄 Автогол соперника</span><span class="x" onclick="removeGoal('${side}',${i})">✕</span></div>`;
+        return `
+            <div class="goal-row">
+                <select onchange="updateGoalField('${side}',${i},'player',this.value)" style="flex:1;">
+                    <option value="">Автор гола…</option>${playerOpts(teamPlayers)}
+                </select>
+                <select onchange="updateGoalField('${side}',${i},'assist',this.value)" style="flex:1;">
+                    <option value="">Без паса</option>${playerOpts(teamPlayers)}
+                </select>
+                <span class="x" onclick="removeGoal('${side}',${i})">✕</span>
+            </div>
+        `;
+    }).join('') || '<div class="empty-state" style="padding:8px;">Голов пока нет</div>';
+
+    document.getElementById('goalsAList').innerHTML = renderList('A', goalsA, teamA ? teamA.players : []);
+    document.getElementById('goalsBList').innerHTML = renderList('B', goalsB, teamB ? teamB.players : []);
+
+    // восстановить выбранные значения в селектах (innerHTML пересобирает DOM)
+    document.querySelectorAll('#goalsAList select').forEach((sel, i) => {
+        const isAssist = i % 2 === 1;
+        const g = goalsA[Math.floor(i / 2)];
+        if (g) sel.value = isAssist ? (g.assist || '') : (g.player || '');
+    });
+    document.querySelectorAll('#goalsBList select').forEach((sel, i) => {
+        const isAssist = i % 2 === 1;
+        const g = goalsB[Math.floor(i / 2)];
+        if (g) sel.value = isAssist ? (g.assist || '') : (g.player || '');
+    });
+
+    const penaltyBlock = document.getElementById('penaltyBlock');
+    const isDraw = goalsA.length === goalsB.length;
+    penaltyBlock.hidden = !isDraw;
+    const penChecked = document.getElementById('penaltyCheck').checked;
+    document.getElementById('penaltyWinnerRow').hidden = !(isDraw && penChecked);
+    document.getElementById('penaltyWinner').innerHTML = `<option value="A">${teamA ? teamA.name : 'А'}</option><option value="B">${teamB ? teamB.name : 'Б'}</option>`;
+}
+
+async function submitMatch() {
+    const msg = document.getElementById('matchMsg');
+    const day = currentDay();
+    if (!day) return;
+    const teamAIdx = Number(document.getElementById('teamASelect').value);
+    const teamBIdx = Number(document.getElementById('teamBSelect').value);
+    if (teamAIdx === teamBIdx) { msg.innerHTML = '<div class="msg err">❌ Команда А и Б должны быть разными.</div>'; return; }
+    const missingPlayer = [...goalsA, ...goalsB].find(g => !g.ownGoal && !g.player);
+    if (missingPlayer) { msg.innerHTML = '<div class="msg err">❌ У одного из голов не выбран автор — выберите игрока или удалите строку.</div>'; return; }
+
+    const toScorers = arr => arr.map(g => g.ownGoal ? { name: 'Автогол', goals: 1 } : { name: g.player, goals: 1, ...(g.assist ? { assist: g.assist } : {}) });
+    const match = {
+        teamAIdx, teamBIdx,
+        scoreA: goalsA.length, scoreB: goalsB.length,
+        scorersA: toScorers(goalsA), scorersB: toScorers(goalsB),
+    };
+    if (goalsA.length === goalsB.length && document.getElementById('penaltyCheck').checked) {
+        match.wonByPenalties = document.getElementById('penaltyWinner').value === 'A' ? teamAIdx : teamBIdx;
+    }
+
+    try {
+        day.matches = day.matches || [];
+        day.matches.push(match);
+        await saveFullState();
+        msg.innerHTML = '<div class="msg ok">✓ Игра добавлена.</div>';
+        goalsA = []; goalsB = [];
+        document.getElementById('penaltyCheck').checked = false;
+        onDaySelected();
+    } catch (e) {
+        // откатываем локально добавленную игру, раз сохранить не удалось
+        day.matches.pop();
+        msg.innerHTML = '<div class="msg err">❌ ' + e.message + '</div>';
+    }
+}
+
+async function removeLastMatch() {
+    const msg = document.getElementById('matchMsg');
+    const day = currentDay();
+    if (!day || !(day.matches || []).length) { msg.innerHTML = '<div class="msg err">❌ В этот день ещё нет ни одной игры.</div>'; return; }
+    const removed = day.matches.pop();
+    try {
+        await saveFullState();
+        msg.innerHTML = '<div class="msg ok">✓ Последняя игра дня удалена.</div>';
+        onDaySelected();
+    } catch (e) {
+        day.matches.push(removed);
+        msg.innerHTML = '<div class="msg err">❌ ' + e.message + '</div>';
+    }
+}
+
+loadAll();
+</script>
+</body>
+</html>
