@@ -432,6 +432,10 @@ function getAllGameDaysForStats() {
     legacyStats: r.legacy_stats_json ? JSON.parse(r.legacy_stats_json) : undefined,
     manualStandings: r.manual_standings_json ? JSON.parse(r.manual_standings_json) : undefined,
     personalStats: r.personal_stats_json ? JSON.parse(r.personal_stats_json) : undefined,
+    // Добавлено для bot-control.html (список дней для записи результатов) —
+    // старые потребители (public/index.html, rating.html) это поле не
+    // используют, так что добавление безопасно.
+    status: r.status,
   }));
 }
 
@@ -483,7 +487,7 @@ function replaceState(roster, gameDays) {
     });
     const upsertDay = db.prepare(`
       INSERT INTO game_days (id, date, legacy, teams_json, matches_json, legacy_stats_json, manual_standings_json, personal_stats_json, status)
-      VALUES (@id, @date, @legacy, @teams_json, @matches_json, @legacy_stats_json, @manual_standings_json, @personal_stats_json, 'completed')
+      VALUES (@id, @date, @legacy, @teams_json, @matches_json, @legacy_stats_json, @manual_standings_json, @personal_stats_json, @status)
       ON CONFLICT(id) DO UPDATE SET
         date = excluded.date, legacy = excluded.legacy, teams_json = excluded.teams_json,
         matches_json = excluded.matches_json, legacy_stats_json = excluded.legacy_stats_json,
@@ -499,6 +503,11 @@ function replaceState(roster, gameDays) {
       legacy_stats_json: d.legacyStats ? JSON.stringify(d.legacyStats) : null,
       manual_standings_json: d.manualStandings ? JSON.stringify(d.manualStandings) : null,
       personal_stats_json: d.personalStats ? JSON.stringify(d.personalStats) : null,
+      // Только для НОВОГО дня (ON CONFLICT игнорирует status) — по умолчанию
+      // 'completed', как раньше; страница управления ботом (bot-control.html)
+      // явно передаёт 'approved', чтобы день сразу был готов для /start_game,
+      // без отдельного шага /approve_day.
+      status: d.status || 'completed',
     }));
   });
   tx();
@@ -707,8 +716,35 @@ function setPendingDivisionStatus(id, status) {
   db.prepare('UPDATE pending_divisions SET status = ? WHERE id = ?').run(status, id);
 }
 
+// --- Настройки (пока только время автозапуска опроса) ---
+// Переиспользуем schema_meta (key-value), отдельная таблица не нужна.
+// day: 1=Пн..7=Вс (как в cron), time: 'HH:MM'. Дефолт — текущее
+// поведение (понедельник 09:00), если ничего не сохранено.
+const DEFAULT_POLL_SETTINGS = { pollDayOfWeek: 1, pollTime: '09:00' };
+
+function getPollSettings() {
+  const day = db.prepare("SELECT value FROM schema_meta WHERE key = 'poll_day_of_week'").get();
+  const time = db.prepare("SELECT value FROM schema_meta WHERE key = 'poll_time'").get();
+  return {
+    pollDayOfWeek: day ? Number(day.value) : DEFAULT_POLL_SETTINGS.pollDayOfWeek,
+    pollTime: time ? time.value : DEFAULT_POLL_SETTINGS.pollTime,
+  };
+}
+
+function setPollSettings({ pollDayOfWeek, pollTime }) {
+  const upsert = db.prepare(`
+    INSERT INTO schema_meta (key, value) VALUES (@key, @value)
+    ON CONFLICT(key) DO UPDATE SET value = excluded.value
+  `);
+  if (pollDayOfWeek != null) upsert.run({ key: 'poll_day_of_week', value: String(pollDayOfWeek) });
+  if (pollTime) upsert.run({ key: 'poll_time', value: pollTime });
+  return getPollSettings();
+}
+
 module.exports = {
   db,
+  getPollSettings,
+  setPollSettings,
   getRoster,
   findPlayerByName,
   findPlayerByTelegramUsername,

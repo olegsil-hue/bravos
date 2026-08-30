@@ -765,13 +765,33 @@ bot.action(/^pk_(\d+)_(none|\d+)$/, ctx => gameRecording.handlePenaltyWinner(bot
 // апрув. Среда 18:00 — открыть запись игр в группе.
 // ===================================================================
 
-// День/час подобраны на глаз (даёт ~2.5 суток на голосование до среды);
-// поменять — просто исправить cron-выражение здесь.
-cron.schedule('0 9 * * 1', async () => {
+// День/время настраиваются на странице /bot-control.html (db.getPollSettings)
+// — по умолчанию понедельник 09:00 (даёт ~2.5 суток на голосование до
+// среды). Тикаем каждую минуту и сверяем текущее время В ЧАСОВОМ ПОЯСЕ
+// TIMEZONE с настройкой — так смена настройки применяется сразу, без
+// рестарта бота (в отличие от фиксированного cron-паттерна).
+function nowPartsInTimezone(timezone) {
+  const parts = new Intl.DateTimeFormat('en-US', {
+    timeZone: timezone, weekday: 'short', hour: '2-digit', minute: '2-digit', hour12: false,
+  }).formatToParts(new Date());
+  const get = type => parts.find(p => p.type === type).value;
+  const weekdayMap = { Mon: 1, Tue: 2, Wed: 3, Thu: 4, Fri: 5, Sat: 6, Sun: 7 };
+  const hour = get('hour') === '24' ? '00' : get('hour'); // Intl иногда отдаёт '24:00' вместо '00:00'
+  return { dayOfWeek: weekdayMap[get('weekday')], time: `${hour}:${get('minute')}` };
+}
+
+let lastPollAutoLaunchMinute = null; // защита от повторного запуска в ту же минуту
+cron.schedule('* * * * *', async () => {
   if (!GROUP_CHAT_ID) return;
+  const { dayOfWeek, time } = nowPartsInTimezone(TIMEZONE);
+  const settings = db.getPollSettings();
+  if (dayOfWeek !== settings.pollDayOfWeek || time !== settings.pollTime) return;
+  const stamp = `${dayOfWeek}-${time}`;
+  if (lastPollAutoLaunchMinute === stamp) return; // уже сработало в эту минуту
+  lastPollAutoLaunchMinute = stamp;
   if (db.getLatestOpenPoll()) return; // уже есть открытый (например, админ запустил вручную) — не дублируем
   const eventDate = await launchPoll();
-  console.log(`Опрос на ${eventDate} опубликован автоматически (понедельник 09:00).`);
+  console.log(`Опрос на ${eventDate} опубликован автоматически (по расписанию ${settings.pollTime}).`);
 }, { timezone: TIMEZONE });
 
 cron.schedule('0 12 * * 3', async () => {

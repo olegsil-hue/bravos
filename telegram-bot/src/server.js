@@ -91,6 +91,33 @@ function startServer() {
     }
   });
 
+  // Настройки автозапуска опроса (bot-control.html) — читает и правит сам
+  // бот (index.js, cron-тик каждую минуту сверяет текущее время с этим).
+  app.get('/api/settings', (req, res) => {
+    try {
+      res.json(db.getPollSettings());
+    } catch (err) {
+      console.error('GET /api/settings упал:', err);
+      res.status(500).json({ error: 'internal_error' });
+    }
+  });
+
+  app.post('/api/settings', (req, res) => {
+    const { pollDayOfWeek, pollTime } = req.body || {};
+    if (pollDayOfWeek != null && (!Number.isInteger(pollDayOfWeek) || pollDayOfWeek < 1 || pollDayOfWeek > 7)) {
+      return res.status(400).json({ error: 'pollDayOfWeek must be an integer 1-7 (1=Пн)' });
+    }
+    if (pollTime != null && !/^\d{2}:\d{2}$/.test(pollTime)) {
+      return res.status(400).json({ error: 'pollTime must be HH:MM' });
+    }
+    try {
+      res.json(db.setPollSettings({ pollDayOfWeek, pollTime }));
+    } catch (err) {
+      console.error('POST /api/settings упал:', err);
+      res.status(500).json({ error: 'internal_error' });
+    }
+  });
+
   const PORT = process.env.PORT || 3000;
   app.listen(PORT, () => {
     console.log(`HTTP-сервер (общая база + веб-приложение) слушает порт ${PORT}.`);
