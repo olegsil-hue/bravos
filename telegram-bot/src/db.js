@@ -1,6 +1,7 @@
 'use strict';
 
 const path = require('path');
+const { resolveMatch, applyAppend, datesMatch } = require('./core/matchLog');
 const fs = require('fs');
 const Database = require('better-sqlite3');
 const seed = require('./seed-data.json');
@@ -340,12 +341,27 @@ applyAdditionalLegacyGameDays();
 // не показать кнопками), а из чат-лога задним числом, включая точечные
 // правки отдельных голов/пасов после первой записи. В отличие от
 // applyAdditionalLegacyGameDays, здесь НЕ трогаем teams_json (составы уже
-// корректны). Как и known-roster-factor-overrides.json — ВСЕГДА
-// перезаписывает matches_json для дней из этого файла (не только на
-// пустое поле): это авторитетные подправленные данные, а не запасной
-// вариант. Файл предназначен только для дней, чей протокол целиком ведётся
-// из чат-лога, а не вживую через /start_game — не добавляйте сюда день,
-// который уже реально пишется кнопками бота.
+// корректны).
+//
+// Два режима:
+//   — без mode / mode=replace (по id): ВСЕГДА перезаписывает matches_json
+//     целиком. Только для дней, чей протокол ведётся из чат-лога, не вживую.
+//   — mode=append (по date или id): дописывает матчи в конец, имена
+//     коротких никнеймов резолвятся по составу команды. Нужен, когда бот
+//     завис посреди живой записи: игры 1…N уже в базе, хвост дописываем,
+//     не затирая начало. Повторный запуск идемпотентен.
+function findGameDayRowForPatch(p) {
+  if (p.id) {
+    const byId = db.prepare('SELECT * FROM game_days WHERE id = ?').get(p.id);
+    if (byId) return byId;
+  }
+  if (p.date) {
+    const rows = db.prepare('SELECT * FROM game_days WHERE legacy = 0 ORDER BY id DESC').all();
+    return rows.find(r => datesMatch(r.date, p.date)) || null;
+  }
+  return null;
+}
+
 function applyMatchLogPatches() {
   let patches;
   try {
@@ -355,12 +371,29 @@ function applyMatchLogPatches() {
   }
   let applied = 0;
   patches.forEach(p => {
-    const row = db.prepare('SELECT matches_json FROM game_days WHERE id = ?').get(p.id);
+    const row = findGameDayRowForPatch(p);
     if (!row) {
-      console.warn(`⚠️ match-log-patches: день #${p.id} не найден в базе — пропускаю (сначала должен быть создан, например через веб-приложение).`);
+      console.warn(`⚠️ match-log-patches: день ${p.date || '#' + p.id} не найден в базе — пропускаю.`);
       return;
     }
-    const r = db.prepare('UPDATE game_days SET matches_json = ? WHERE id = ?').run(JSON.stringify(p.matches), p.id);
+    if (p.mode === 'append') {
+      const teams = JSON.parse(row.teams_json || '[]');
+      let incoming;
+      try {
+        incoming = (p.matches || []).map(m => resolveMatch(teams, m));
+      } catch (err) {
+        console.warn(`⚠️ match-log-patches append ${p.date || '#' + row.id}: ${err.message}`);
+        return;
+      }
+      const existing = JSON.parse(row.matches_json || '[]');
+      const next = applyAppend(existing, incoming);
+      if (JSON.stringify(next) === JSON.stringify(existing)) return;
+      db.prepare('UPDATE game_days SET matches_json = ? WHERE id = ?').run(JSON.stringify(next), row.id);
+      db.prepare("UPDATE live_matches SET status = 'finished' WHERE game_day_id = ? AND status = 'in_progress'").run(row.id);
+      applied++;
+      return;
+    }
+    const r = db.prepare('UPDATE game_days SET matches_json = ? WHERE id = ?').run(JSON.stringify(p.matches), row.id);
     if (r.changes) applied++;
   });
   if (applied) console.log(`Применены патчи протокола мини-игр: ${applied}.`);
@@ -755,6 +788,7 @@ module.exports = {
   db,
   getPollSettings,
   setPollSettings,
+  applyMatchLogPatches,
   getRoster,
   findPlayerByName,
   findPlayerByTelegramUsername,
