@@ -200,7 +200,7 @@
             </div>
 
             <div class="row" style="margin-top:16px;">
-                <div style="flex:0;"><button class="btn-primary" type="button" onclick="submitMatch()">🏁 Завершить матч</button></div>
+                <div style="flex:0;"><button class="btn-primary" type="button" onclick="submitMatch()" id="matchSubmitBtn">🏁 Завершить матч</button></div>
                 <div style="flex:0;"><button class="btn-danger" onclick="removeLastMatch()">↩️ Удалить последнюю игру дня</button></div>
             </div>
             <div id="matchMsg"></div>
@@ -742,6 +742,7 @@ function renderMatchForm() {
 
 async function submitMatch() {
     const msg = document.getElementById('matchMsg');
+    const btn = document.getElementById('matchSubmitBtn');
     const day = currentDay();
     if (!day) return;
     const teamAIdx = Number(document.getElementById('teamASelect').value);
@@ -762,6 +763,8 @@ async function submitMatch() {
         match.wonByPenalties = document.getElementById('penaltyWinner').value === 'A' ? teamAIdx : teamBIdx;
     }
 
+    if (btn) btn.disabled = true;
+    msg.innerHTML = '<div class="msg ok">Сохраняю…</div>';
     try {
         day.matches = day.matches || [];
         day.matches.push(match);
@@ -779,6 +782,8 @@ async function submitMatch() {
     } catch (e) {
         day.matches.pop();
         msg.innerHTML = '<div class="msg err">❌ ' + e.message + '</div>';
+    } finally {
+        if (btn) btn.disabled = false;
     }
 }
 
