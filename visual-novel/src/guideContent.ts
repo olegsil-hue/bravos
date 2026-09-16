@@ -10,7 +10,7 @@ export const PROCESS_SECTIONS: { heading: string; items: string[] }[] = [
   {
     heading: "How you enter",
     items: [
-      "The public hub (#/) lists four published pages: Gameplay, Heroes studio, Suggest room, Game process — plus host/join for a local session code.",
+      "The public hub (#/) lists Gameplay, Heroes studio, Suggest room, Game process — plus host/join. Gameplay opens a 30-second briefing (what / why / what awaits), then the bus.",
       "Host creates a five-character code and a display name. Join needs a code of four or more characters. Play still runs in this browser; no server.",
       "Keyboard on Gameplay: Enter continues, 1–9 pick choices, Escape returns to the hub.",
     ],
@@ -18,9 +18,9 @@ export const PROCESS_SECTIONS: { heading: string; items: string[] }[] = [
   {
     heading: "Illustrated introduction",
     items: [
-      "Play does not dump the setting as one wall of system text. It opens as illustrated scenes: the date, the unmapped coast, the mansion trip, the 20:35 bus, then seats in pairs.",
-      "Seating shown on-screen: Mikari beside Adena (red-haired, lion-eared). Simon beside a similar-age unfriendly man. Kane is likely that neighbor; the posts do not name him, and the game does not treat the name as proven.",
-      "The opening question is left on the table: who will organize introductions before arrival.",
+      "The briefing is illustrated (what this is, why the trip, what awaits). Play itself starts on the bus: a company recording, an immediate seating choice, then Kane speaking from the window unasked.",
+      "Seating map: Mikari beside Adena; Simon beside a similar-age unfriendly man (Kane likely, not proven). A clock sits at ~20:35.",
+      "Then: who organizes introductions, where attention sits, how you step off at the mansion.",
     ],
   },
   {

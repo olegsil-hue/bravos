@@ -17,6 +17,7 @@ Open `http://localhost:5173`. Build: `npm run build` · preview: `npm run previe
 | List | Route |
 | --- | --- |
 | Hub / catalog + host/join | `#/` |
+| Briefing (what / why / awaits) | `#/briefing` |
 | Gameplay | `#/play` or `#/gameplay` |
 | Heroes studio | `#/studio` |
 | Suggest room (upgrades) | `#/upgrade` |

@@ -22,7 +22,7 @@ export function Title() {
   function start(e: FormEvent) {
     e.preventDefault();
     persist(previewCode, guest.trim() || "Guest");
-    navigate("/play");
+    navigate("/briefing");
   }
 
   function join(e: FormEvent) {
@@ -33,7 +33,7 @@ export function Title() {
     }
     setError("");
     persist(joinCode.trim().toUpperCase(), guest.trim() || "Guest");
-    navigate("/play");
+    navigate("/briefing");
   }
 
   return (
@@ -45,8 +45,8 @@ export function Title() {
         <p className="kicker">Online catalog · 17.07.2025 · 20:35</p>
         <h1>Unmapped Peninsula</h1>
         <p className="lede">
-          Published lists for the opening session. Kane Avis, Simon Harrison, Mikari / Tsuji, Adena / Deni, and Laska.
-          No other mains.
+          A visual novel session on a peninsula that is not on any map. Four passengers and a weasel. The company
+          does not explain itself. Read the briefing in under thirty seconds — then the bus at 20:35.
         </p>
       </header>
 
@@ -80,7 +80,7 @@ export function Title() {
             Session <span>{previewCode}</span>
           </p>
           <button type="submit" className="btn-primary">
-            Open Gameplay
+            Briefing, then the bus
           </button>
         </form>
         <form className="glass-card" onSubmit={join}>

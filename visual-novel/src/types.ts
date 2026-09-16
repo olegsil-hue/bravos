@@ -35,6 +35,7 @@ export type Session = {
 };
 
 export type Flags = {
+  hook: "tape" | "window" | "book" | null;
   organizer: "kane" | "simon" | "mikari" | "adena" | "none" | null;
   attention: "pairs-girls" | "pairs-unfriendly" | "window" | null;
   arrival: "rooms" | "gate" | "laska" | null;
@@ -56,6 +57,7 @@ export type Beat = {
   bg: string;
   sprite?: HeroId;
   sprites?: HeroId[];
+  eta?: string;
   text: string;
   choices?: Choice[];
   next?: string;

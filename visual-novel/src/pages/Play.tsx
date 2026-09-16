@@ -5,7 +5,7 @@ import { activePerks, loadStudio, loadUpgrade, portraitSrc, STORAGE_SESSION } fr
 import { beatById } from "../story";
 import type { Beat, Flags, HeroId, Session } from "../types";
 
-const EMPTY_FLAGS: Flags = { organizer: null, attention: null, arrival: null };
+const EMPTY_FLAGS: Flags = { hook: null, organizer: null, attention: null, arrival: null };
 
 type LogLine = { id: string; who: string; text: string; choice?: boolean };
 
@@ -19,7 +19,7 @@ export function Play() {
   const upgrade = useMemo(() => loadUpgrade(), []);
   const perks = useMemo(() => activePerks(upgrade), [upgrade]);
   const [session, setSession] = useState<Session | null>(null);
-  const [beatId, setBeatId] = useState("open");
+  const [beatId, setBeatId] = useState("hook-tape");
   const [flags, setFlags] = useState<Flags>(EMPTY_FLAGS);
   const [log, setLog] = useState<LogLine[]>([]);
   const [missing, setMissing] = useState("");
@@ -125,21 +125,25 @@ export function Play() {
 
       <header className="play-hud">
         <div>
-          <p className="kicker">Gameplay list · session {session?.code ?? "…"}</p>
+          <p className="kicker">Gameplay · {beat.eta ?? "20:35"} · session {session?.code ?? "…"}</p>
           <strong>{session?.guestName ?? "Guest"}</strong>
         </div>
         <HubNav />
       </header>
 
-      <aside className="flags" aria-label="Choice log">
+      <aside className="flags" aria-label="Cabin map">
+        <p className="clock">{beat.eta ?? "20:35"} · arrival close</p>
+        <div className="seat-map" aria-label="Seating">
+          <div className={flags.attention === "pairs-girls" || flags.hook === "tape" || flags.hook === "window" ? "on" : ""}>
+            <span>Far</span> Mikari · Adena + Laska
+          </div>
+          <div className={flags.attention === "pairs-unfriendly" || flags.hook === "book" ? "on" : ""}>
+            <span>Near</span> Simon · unfriendly seatmate
+          </div>
+        </div>
+        <p>Hook: {flags.hook ?? "—"}</p>
         <p>Organizer: {flags.organizer ?? "—"}</p>
-        <p>Attention: {flags.attention ?? "—"}</p>
-        <p>Arrival: {flags.arrival ?? "—"}</p>
-        {perks.length ? (
-          <p className="perk-line">Suggested: {perks.map((p) => p.label).join(" · ")}</p>
-        ) : (
-          <p className="muted">No suggested perks yet.</p>
-        )}
+        {perks.length ? <p className="perk-line">Suggested: {perks.map((p) => p.label).join(" · ")}</p> : null}
       </aside>
 
       {cinematic ? (
@@ -160,7 +164,7 @@ export function Play() {
                 type="button"
                 className="btn-ghost"
                 onClick={() => {
-                  setBeatId("open");
+                  setBeatId("hook-tape");
                   setFlags(EMPTY_FLAGS);
                   setLog([]);
                 }}
@@ -215,7 +219,7 @@ export function Play() {
                   type="button"
                   className="btn-ghost"
                   onClick={() => {
-                    setBeatId("open");
+                    setBeatId("hook-tape");
                     setFlags(EMPTY_FLAGS);
                     setLog([]);
                   }}

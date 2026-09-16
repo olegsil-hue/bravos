@@ -144,6 +144,14 @@ fieldset { border: 1px solid rgba(212,175,119,.2); border-radius: 12px; margin: 
 .studio-refs figcaption { font-size: 0.75rem; color: var(--muted); }
 .layer-note { text-align: center; color: var(--gold); }
 
+.clock { font-family: "Cormorant Garamond", serif; font-size: 1.15rem; color: var(--gold); }
+.seat-map { display: grid; gap: 0.35rem; margin: 0.4rem 0; }
+.seat-map div { padding: 0.35rem 0.45rem; border-radius: 8px; border: 1px solid rgba(212,175,119,.2); }
+.seat-map div.on { border-color: var(--gold); background: rgba(212,175,119,.12); }
+.seat-map span { color: var(--gold); margin-right: 0.35rem; }
+.briefing-shell { padding: 1.5rem 5vw 3rem; overflow: auto; }
+.brief-grid { position: relative; z-index: 3; display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 0.8rem; margin-top: 1rem; }
+.brief-cta { position: relative; z-index: 3; margin-top: 1.2rem; }
 .error-shell { display: grid; place-items: center; min-height: 100dvh; padding: 2rem; }
 
 @media (max-width: 900px) {

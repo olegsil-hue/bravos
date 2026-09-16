@@ -1,0 +1,34 @@
+name: Deploy Unmapped Peninsula
+
+on:
+  push:
+    paths:
+      - "visual-novel/**"
+      - ".github/workflows/pages.yml"
+
+permissions:
+  contents: write
+  pages: write
+  id-token: write
+
+jobs:
+  build-deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - name: Build
+        working-directory: visual-novel
+        run: |
+          npm ci
+          npm run build
+          cp dist/index.html dist/404.html
+      - name: Publish gh-pages
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: visual-novel/dist
+          publish_branch: gh-pages
+          force_orphan: true
