@@ -1,6 +1,9 @@
 import { useMemo, useState } from "react";
-import { Link } from "react-router-dom";
+import { HubNav } from "../HubNav";
 import {
+  DEFAULT_BIOS,
+  DEFAULT_NAMES,
+  HERO_ORDER,
   defaultStudio,
   loadStudio,
   portraitSrc,
@@ -8,7 +11,7 @@ import {
 } from "../storage";
 import type { Expression, HairId, HeroId, OutfitId, StudioState } from "../types";
 
-const HEROES: HeroId[] = ["kane", "simon", "mikari", "adena", "laska"];
+const HEROES = HERO_ORDER;
 const EXPRESSIONS: Expression[] = ["neutral", "tired", "annoyed", "smile"];
 const OUTFITS: { id: OutfitId; label: string }[] = [
   { id: "jacket", label: "Charcoal jacket" },
@@ -68,26 +71,25 @@ export function Studio() {
             are in each bio — including Mikari’s unresolved dates and Simon’s unnamed seatmate.
           </p>
         </div>
-        <nav>
-          <Link to="/">Title</Link>
-          <Link to="/play">Play</Link>
-        </nav>
+        <HubNav />
       </header>
 
-      <div className="studio-grid">
-        <aside className="hero-rail">
-          {HEROES.map((h) => (
-            <button
-              key={h}
-              type="button"
-              className={h === id ? "on" : ""}
-              onClick={() => setId(h)}
-            >
+      <ol className="studio-hero-list">
+        {HEROES.map((h, i) => (
+          <li key={h}>
+            <button type="button" className={h === id ? "on" : ""} onClick={() => setId(h)}>
+              <span className="idx">{String(i + 1).padStart(2, "0")}</span>
               <img src={`assets/characters/${h}-bust.png`} alt="" />
-              <span>{state[h].displayName}</span>
+              <span>
+                <strong>{state[h].displayName || DEFAULT_NAMES[h]}</strong>
+                <em>{DEFAULT_BIOS[h]}</em>
+              </span>
             </button>
-          ))}
-        </aside>
+          </li>
+        ))}
+      </ol>
+
+      <div className="studio-grid">
 
         <section className="preview">
           <div className="preview-stage" style={{ ["--tint" as string]: hero.color }}>

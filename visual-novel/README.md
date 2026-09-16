@@ -10,24 +10,24 @@ npm install
 npm run dev
 ```
 
-Then open the printed local URL (default `http://localhost:5173`).
+Open `http://localhost:5173`. Build: `npm run build` · preview: `npm run preview`.
 
-Build: `npm run build` · preview: `npm run preview`.
+## Published lists (hash routes)
 
-## Routes (hash)
-
-| Route | Screen |
+| List | Route |
 | --- | --- |
-| `#/` | Title / host or join a session |
-| `#/play` | Bus scene, chat log, choices |
-| `#/studio` | Hero studio (four mains + Laska) |
+| Hub / catalog + host/join | `#/` |
+| Gameplay | `#/play` or `#/gameplay` |
+| Heroes studio | `#/studio` |
+| Suggest room (upgrades) | `#/upgrade` |
+| Game process | `#/guide` |
 
-Keyboard on play: **Enter** continue, **1–9** choices, **Esc** title.
+Keyboard on play: **Enter** continue, **1–9** choices, **Esc** hub.
 
-## Canon used
+How-to text also lives in the project store as `docs/game-process.md` and on `#/guide`.
 
-Facts from project context / opening posts only. Mains: Kane Avis, Simon Harrison, Mikari/Tsuji, Adena/Deni, weasel Laska. Mikari’s 16.05/17.05 vs 17.07.2025 dates stay unresolved. Simon’s seatmate is unnamed in-post; Kane is treated as likely, not proven.
+## Canon
 
-Player-facing language is English. Source posts in the project archive remain Russian.
+Kane Avis, Simon Harrison, Mikari/Tsuji, Adena/Deni, Laska only. Mikari 16.05/17.05 vs 17.07.2025 unresolved. Simon’s seatmate unnamed; Kane likely, not proven.
 
-This package is separate from the football tools in the repository root.
+Player-facing language is English.

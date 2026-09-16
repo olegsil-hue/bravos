@@ -1,7 +1,10 @@
-import type { Expression, HeroEdit, HeroId, StudioState } from "./types";
+import type { Expression, HeroEdit, HeroId, HeroUpgrade, PerkId, StudioState, UpgradeState } from "./types";
 
 export const STORAGE_STUDIO = "unmapped-peninsula-studio";
 export const STORAGE_SESSION = "unmapped-peninsula-session";
+export const STORAGE_UPGRADE = "unmapped-peninsula-upgrade";
+
+export const HERO_ORDER: HeroId[] = ["kane", "simon", "mikari", "adena", "laska"];
 
 export const DEFAULT_BIOS: Record<HeroId, string> = {
   kane: "Looks about twenty-two. Agreed to the trip, then regretted the crowd. Wants a private room and silence.",
@@ -27,6 +30,34 @@ export const DEFAULT_COLORS: Record<HeroId, string> = {
   laska: "#f3d5b8",
 };
 
+export const PERKS: Record<PerkId, { label: string; hero: HeroId; blurb: string }> = {
+  "quiet-window": {
+    label: "Quiet window",
+    hero: "kane",
+    blurb: "Suggested: keep eyes on the glass. Crowd noise drops a notch in play.",
+  },
+  "folded-page": {
+    label: "Folded page",
+    hero: "simon",
+    blurb: "Suggested: a book as a door that is not. Seatmate still unnamed.",
+  },
+  unanswered: {
+    label: "Unanswered",
+    hero: "mikari",
+    blurb: "Suggested: the company still owes her names. Dates 16.05 / 17.05 stay open.",
+  },
+  "glass-look": {
+    label: "Glass look",
+    hero: "adena",
+    blurb: "Suggested: watch the cabin in the window so no one calls it staring.",
+  },
+  "hoodie-nest": {
+    label: "Hoodie nest",
+    hero: "laska",
+    blurb: "Suggested: Laska may hide, poke, or ride the collar — allowed familiar.",
+  },
+};
+
 export function defaultHero(id: HeroId): HeroEdit {
   return {
     displayName: DEFAULT_NAMES[id],
@@ -49,12 +80,27 @@ export function defaultStudio(): StudioState {
   };
 }
 
+export function defaultUpgradeFor(id: HeroId): HeroUpgrade {
+  const fatigue = id === "mikari" || id === "adena" ? 4 : id === "kane" ? 3 : 2;
+  const nerve = id === "kane" ? 4 : id === "mikari" ? 3 : 2;
+  return { nerve, fatigue, perk: null };
+}
+
+export function defaultUpgrade(): UpgradeState {
+  return {
+    kane: defaultUpgradeFor("kane"),
+    simon: defaultUpgradeFor("simon"),
+    mikari: defaultUpgradeFor("mikari"),
+    adena: defaultUpgradeFor("adena"),
+    laska: defaultUpgradeFor("laska"),
+  };
+}
+
 export function loadStudio(): StudioState {
   try {
     const raw = localStorage.getItem(STORAGE_STUDIO);
     if (!raw) return defaultStudio();
-    const parsed = JSON.parse(raw) as StudioState;
-    return { ...defaultStudio(), ...parsed };
+    return { ...defaultStudio(), ...JSON.parse(raw) };
   } catch {
     return defaultStudio();
   }
@@ -62,6 +108,20 @@ export function loadStudio(): StudioState {
 
 export function saveStudio(state: StudioState) {
   localStorage.setItem(STORAGE_STUDIO, JSON.stringify(state));
+}
+
+export function loadUpgrade(): UpgradeState {
+  try {
+    const raw = localStorage.getItem(STORAGE_UPGRADE);
+    if (!raw) return defaultUpgrade();
+    return { ...defaultUpgrade(), ...JSON.parse(raw) };
+  } catch {
+    return defaultUpgrade();
+  }
+}
+
+export function saveUpgrade(state: UpgradeState) {
+  localStorage.setItem(STORAGE_UPGRADE, JSON.stringify(state));
 }
 
 export function portraitSrc(id: HeroId, expression: Expression, kind: "bust" | "full" = "bust") {
@@ -74,4 +134,12 @@ export function portraitSrc(id: HeroId, expression: Expression, kind: "bust" | "
 
 export function bustSrc(id: HeroId) {
   return `assets/characters/${id}-bust.png`;
+}
+
+export function activePerks(up: UpgradeState): { hero: HeroId; label: string }[] {
+  return HERO_ORDER.flatMap((id) => {
+    const p = up[id].perk;
+    if (!p) return [];
+    return [{ hero: id, label: PERKS[p].label }];
+  });
 }

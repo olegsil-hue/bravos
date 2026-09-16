@@ -1,5 +1,6 @@
 import { FormEvent, useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
+import { LISTS } from "../HubNav";
 import { STORAGE_SESSION } from "../storage";
 
 function makeCode() {
@@ -15,23 +16,19 @@ export function Title() {
   const previewCode = useMemo(() => makeCode(), []);
 
   function persist(code: string, name: string) {
-    localStorage.setItem(
-      STORAGE_SESSION,
-      JSON.stringify({ code, guestName: name })
-    );
+    localStorage.setItem(STORAGE_SESSION, JSON.stringify({ code, guestName: name }));
   }
 
   function start(e: FormEvent) {
     e.preventDefault();
-    const name = guest.trim() || "Guest";
-    persist(previewCode, name);
+    persist(previewCode, guest.trim() || "Guest");
     navigate("/play");
   }
 
   function join(e: FormEvent) {
     e.preventDefault();
     if (joinCode.trim().length < 4) {
-      setError("Need a session code (4+ characters). Host one above if you do not have one.");
+      setError("Need a session code (4+ characters). Host one if you do not have one.");
       return;
     }
     setError("");
@@ -45,18 +42,36 @@ export function Title() {
       <div className="vignette" />
       <img className="full-art" src="assets/ui/ui-title-card.png" alt="" />
       <header className="title-top">
-        <p className="kicker">Online session · 17.07.2025 · 20:35</p>
+        <p className="kicker">Online catalog · 17.07.2025 · 20:35</p>
         <h1>Unmapped Peninsula</h1>
         <p className="lede">
-          A company vacation bus on a peninsula that is not on any map. Four passengers — Kane Avis,
-          Simon Harrison, Mikari / Tsuji, Adena / Deni — and the weasel familiar Laska. Sit in pairs.
-          Choose who speaks before the mansion.
+          Published lists for the opening session. Kane Avis, Simon Harrison, Mikari / Tsuji, Adena / Deni, and Laska.
+          No other mains.
         </p>
       </header>
+
+      <section className="catalog" aria-label="Published lists">
+        <img className="catalog-art" src="assets/ui/ui-catalog.png" alt="" />
+        <h2>Lists</h2>
+        <ol className="catalog-list">
+          {LISTS.map((l, i) => (
+            <li key={l.to}>
+              <Link to={l.to}>
+                <span className="idx">{String(i + 1).padStart(2, "0")}</span>
+                <span>
+                  <strong>{l.name}</strong>
+                  <em>{l.blurb}</em>
+                </span>
+              </Link>
+            </li>
+          ))}
+        </ol>
+      </section>
+
       <div className="title-panels">
         <form className="glass-card" onSubmit={start}>
           <h2>Host a play session</h2>
-          <p className="muted">Local “online” table: a code, a guest name, a chat log of choices. No server required.</p>
+          <p className="muted">Local online table: a code, a guest name, a chat log of choices.</p>
           <label>
             Display name
             <input value={guest} onChange={(e) => setGuest(e.target.value)} placeholder="Your name at the table" />
@@ -65,12 +80,12 @@ export function Title() {
             Session <span>{previewCode}</span>
           </p>
           <button type="submit" className="btn-primary">
-            Start the bus
+            Open Gameplay
           </button>
         </form>
         <form className="glass-card" onSubmit={join}>
           <h2>Join</h2>
-          <p className="muted">Enter a hosted code to sit the same opening. Story still runs in this browser.</p>
+          <p className="muted">Enter a hosted code to sit the same opening.</p>
           <label>
             Session code
             <input
@@ -86,25 +101,6 @@ export function Title() {
           </button>
         </form>
       </div>
-      <nav className="title-nav">
-        <Link to="/studio">Hero studio</Link>
-        <span className="dot" />
-        <a href="#cast">Cast</a>
-      </nav>
-      <section id="cast" className="cast-row">
-        {[
-          ["kane", "Kane Avis"],
-          ["simon", "Simon Harrison"],
-          ["mikari", "Mikari / Tsuji"],
-          ["adena", "Adena / Deni"],
-          ["laska", "Laska"],
-        ].map(([id, name]) => (
-          <figure key={id}>
-            <img src={`assets/characters/${id}-bust.png`} alt={name} />
-            <figcaption>{name}</figcaption>
-          </figure>
-        ))}
-      </section>
     </div>
   );
 }

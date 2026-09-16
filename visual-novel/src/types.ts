@@ -2,6 +2,12 @@ export type HeroId = "kane" | "simon" | "mikari" | "adena" | "laska";
 export type Expression = "neutral" | "tired" | "annoyed" | "smile";
 export type OutfitId = "travel" | "hoodie" | "knit" | "jacket";
 export type HairId = "canon" | "darker" | "lighter" | "dusk";
+export type PerkId =
+  | "quiet-window"
+  | "folded-page"
+  | "unanswered"
+  | "glass-look"
+  | "hoodie-nest";
 
 export type HeroEdit = {
   displayName: string;
@@ -14,6 +20,14 @@ export type HeroEdit = {
 };
 
 export type StudioState = Record<HeroId, HeroEdit>;
+
+export type HeroUpgrade = {
+  nerve: number;
+  fatigue: number;
+  perk: PerkId | null;
+};
+
+export type UpgradeState = Record<HeroId, HeroUpgrade>;
 
 export type Session = {
   code: string;
@@ -35,10 +49,13 @@ export type Choice = {
 
 export type Beat = {
   id: string;
+  kind?: "scene" | "chat";
+  title?: string;
   speaker?: HeroId | "narrator";
   expression?: Expression;
   bg: string;
   sprite?: HeroId;
+  sprites?: HeroId[];
   text: string;
   choices?: Choice[];
   next?: string;
