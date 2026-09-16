@@ -23,6 +23,9 @@ const HINT_ALIASES = {
   'алексей зайцев': ['Алексей Зайцев'],
   'олег и': ['Олег Иохин'],
   'олег иохин': ['Олег Иохин'],
+  'артем': ['Артем от Димы'],
+  'артём': ['Артем от Димы'],
+  'артем от димы': ['Артем от Димы'],
 };
 
 function unique(arr) {
@@ -114,6 +117,49 @@ function datesMatch(stored, wanted) {
   return false;
 }
 
+/** Победитель остаётся, проигравший уступает место отдыхавшей команде. */
+function winnerStaysNext({ teamAIdx, teamBIdx, sittingOutIdx, scoreA, scoreB, teamCount, wonByPenalties }) {
+  const winnerIdx = wonByPenalties !== null && wonByPenalties !== undefined
+    ? wonByPenalties
+    : (scoreA > scoreB ? teamAIdx : (scoreB > scoreA ? teamBIdx : null));
+  const loserIdx = winnerIdx === null ? null
+    : (winnerIdx === teamAIdx ? teamBIdx : teamAIdx);
+  if (teamCount < 3 || sittingOutIdx === null || sittingOutIdx === undefined) {
+    return { nextA: teamAIdx, nextB: teamBIdx, nextSittingOut: null, winnerIdx, loserIdx };
+  }
+  if (winnerIdx === null) {
+    return { nextA: teamAIdx, nextB: teamBIdx, nextSittingOut: sittingOutIdx, winnerIdx, loserIdx };
+  }
+  return { nextA: winnerIdx, nextB: sittingOutIdx, nextSittingOut: loserIdx, winnerIdx, loserIdx };
+}
+
+function sittingOutIdxForPair(teamCount, teamAIdx, teamBIdx) {
+  if (teamCount < 3) return null;
+  for (let i = 0; i < teamCount; i++) {
+    if (i !== teamAIdx && i !== teamBIdx) return i;
+  }
+  return null;
+}
+
+/** Если одно имя попало в две команды (описка в протоколе) — оставляем первое вхождение. */
+function dedupePlayersAcrossTeams(teams) {
+  const seen = new Set();
+  const dropped = [];
+  const next = (teams || []).map(t => {
+    const players = [];
+    (t.players || []).forEach(name => {
+      if (seen.has(name)) {
+        dropped.push(name);
+        return;
+      }
+      seen.add(name);
+      players.push(name);
+    });
+    return { ...t, players };
+  });
+  return { teams: next, dropped };
+}
+
 module.exports = {
   normalizeHint,
   resolvePlayerOnTeam,
@@ -122,4 +168,7 @@ module.exports = {
   applyAppend,
   matchesAlreadyApplied,
   datesMatch,
+  dedupePlayersAcrossTeams,
+  winnerStaysNext,
+  sittingOutIdxForPair,
 };

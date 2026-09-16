@@ -6,6 +6,8 @@ const {
   applyAppend,
   matchesAlreadyApplied,
   datesMatch,
+  dedupePlayersAcrossTeams,
+  winnerStaysNext,
 } = require('./matchLog');
 
 const team1 = ['Ваня от Клюшина', 'Илья Сыван', 'Паша Тренин', 'Георгий Вагин', 'Дима Корольков'];
@@ -82,6 +84,21 @@ try {
 } catch (e) {
   eq('ambiguous Pasha throws', e.message.includes('неоднозначно'), true);
 }
+
+eq('winner stays: K2 beat K1, K3 was sitting → next K2 vs K3', winnerStaysNext({
+  teamAIdx: 1, teamBIdx: 0, sittingOutIdx: 2, scoreA: 2, scoreB: 0, teamCount: 3, wonByPenalties: null,
+}), { nextA: 1, nextB: 2, nextSittingOut: 0, winnerIdx: 1, loserIdx: 0 });
+
+const officialT1 = ['Ваня от Клюшина', 'Паша Вирник', 'Илья Сыван', 'Дима Корольков', 'Петр Звенигородский'];
+eq('16.09 Паша → Вирник', resolvePlayerOnTeam(officialT1, 'Паша'), 'Паша Вирник');
+
+const dup = dedupePlayersAcrossTeams([
+  { name: 'К1', players: ['Дима Корольков', 'Ваня от Клюшина'] },
+  { name: 'К2', players: ['Дима Князев', 'Дима Корольков', 'Андрей'] },
+]);
+eq('Корольков stays on team 1', dup.teams[0].players.includes('Дима Корольков'), true);
+eq('Корольков dropped from team 2', dup.teams[1].players.includes('Дима Корольков'), false);
+eq('dropped name', dup.dropped, ['Дима Корольков']);
 
 if (failed) {
   console.error(`${failed} failed`);

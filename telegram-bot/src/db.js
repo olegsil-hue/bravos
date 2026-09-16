@@ -1,7 +1,7 @@
 'use strict';
 
 const path = require('path');
-const { resolveMatch, applyAppend, datesMatch } = require('./core/matchLog');
+const { resolveMatch, applyAppend, datesMatch, dedupePlayersAcrossTeams } = require('./core/matchLog');
 const fs = require('fs');
 const Database = require('better-sqlite3');
 const seed = require('./seed-data.json');
@@ -287,6 +287,36 @@ function applyKnownRosterFactorOverrides() {
 
 applyKnownRosterFactorOverrides();
 
+function applyAdditionalPlayers() {
+  let extra;
+  try {
+    extra = require('./additional-players.json').players;
+  } catch (e) {
+    return;
+  }
+  const insert = db.prepare(`
+    INSERT INTO players (name, pos1, pos2, gk, def, att, end_, telegram_username)
+    VALUES (@name, @pos1, @pos2, @gk, @def, @att, @end, NULL)
+    ON CONFLICT(name) DO NOTHING
+  `);
+  let added = 0;
+  extra.forEach(p => {
+    const r = insert.run({
+      name: p.name,
+      pos1: p.pos1 || 'MID',
+      pos2: p.pos2 || null,
+      gk: p.gk ?? 5,
+      def: p.def ?? 5,
+      att: p.att ?? 5,
+      end: p.end ?? 5,
+    });
+    if (r.changes) added++;
+  });
+  if (added) console.log(`Добавлены недостающие игроки: ${added}.`);
+}
+
+applyAdditionalPlayers();
+
 // Исторические игровые дни, не попавшие в изначальную full-state-migration
 // (та применяется строго один раз) — см. additional-legacy-gamedays.json.
 // UPSERT по id (не INSERT OR IGNORE): эти дни — авторитетные данные из
@@ -350,6 +380,12 @@ applyAdditionalLegacyGameDays();
 //     коротких никнеймов резолвятся по составу команды. Нужен, когда бот
 //     завис посреди живой записи: игры 1…N уже в базе, хвост дописываем,
 //     не затирая начало. Повторный запуск идемпотентен.
+//   — mode=upsert-day (по date): выставляет teams_json. Если
+//     keepExistingMatches=true — не затирает уже записанные игры (нужно,
+//     когда 1…N записаны вживую, а хвост дописываем); matches при пустом
+//     протоколе используется как затравка, append — дописывается через
+//     applyAppend. Без keepExistingMatches — полная замена matches_json.
+//     Если дня ещё нет — создаёт. Дубли имён между командами выкидываются.
 function findGameDayRowForPatch(p) {
   if (p.id) {
     const byId = db.prepare('SELECT * FROM game_days WHERE id = ?').get(p.id);
@@ -371,9 +407,48 @@ function applyMatchLogPatches() {
   }
   let applied = 0;
   patches.forEach(p => {
-    const row = findGameDayRowForPatch(p);
+    let row = findGameDayRowForPatch(p);
     if (!row) {
-      console.warn(`⚠️ match-log-patches: день ${p.date || '#' + p.id} не найден в базе — пропускаю.`);
+      if (p.mode === 'upsert-day' && p.date && p.teams) {
+        const info = db.prepare(`
+          INSERT INTO game_days (date, legacy, teams_json, matches_json, status)
+          VALUES (?, 0, '[]', '[]', 'completed')
+        `).run(p.date);
+        row = db.prepare('SELECT * FROM game_days WHERE id = ?').get(info.lastInsertRowid);
+      } else {
+        console.warn(`⚠️ match-log-patches: день ${p.date || '#' + p.id} не найден в базе — пропускаю.`);
+        return;
+      }
+    }
+    if (p.mode === 'upsert-day') {
+      const teams = p.teams || JSON.parse(row.teams_json || '[]');
+      const { teams: uniqueTeams, dropped } = dedupePlayersAcrossTeams(teams);
+      if (dropped.length) console.warn(`⚠️ match-log-patches ${p.date}: дубли между командами пропущены: ${[...new Set(dropped)].join(', ')}`);
+      let nextMatches;
+      try {
+        const existing = JSON.parse(row.matches_json || '[]');
+        if (p.keepExistingMatches) {
+          nextMatches = existing.length ? existing : (p.matches || []).map(m => resolveMatch(uniqueTeams, m));
+          if (p.append && p.append.length) {
+            nextMatches = applyAppend(nextMatches, p.append.map(m => resolveMatch(uniqueTeams, m)));
+          }
+        } else {
+          nextMatches = (p.matches || []).map(m => resolveMatch(uniqueTeams, m));
+          if (p.append && p.append.length) {
+            nextMatches = applyAppend(nextMatches, p.append.map(m => resolveMatch(uniqueTeams, m)));
+          }
+        }
+      } catch (err) {
+        console.warn(`⚠️ match-log-patches upsert-day ${p.date}: ${err.message}`);
+        return;
+      }
+      const sameTeams = JSON.stringify(JSON.parse(row.teams_json || '[]')) === JSON.stringify(uniqueTeams);
+      const sameMatches = JSON.stringify(JSON.parse(row.matches_json || '[]')) === JSON.stringify(nextMatches);
+      if (sameTeams && sameMatches) return;
+      db.prepare("UPDATE game_days SET teams_json = ?, matches_json = ?, status = 'completed' WHERE id = ?")
+        .run(JSON.stringify(uniqueTeams), JSON.stringify(nextMatches), row.id);
+      db.prepare("UPDATE live_matches SET status = 'finished' WHERE game_day_id = ? AND status = 'in_progress'").run(row.id);
+      applied++;
       return;
     }
     if (p.mode === 'append') {
@@ -636,6 +711,11 @@ function getActiveLiveMatchForDay(gameDayId) {
   return r ? getLiveMatch(r.id) : null;
 }
 
+function claimLiveMatchFinish(id) {
+  const info = db.prepare("UPDATE live_matches SET status = 'finished' WHERE id = ? AND status = 'in_progress'").run(id);
+  return info.changes > 0;
+}
+
 function updateLiveMatch(id, fields) {
   const current = getLiveMatch(id);
   if (!current) return null;
@@ -823,5 +903,6 @@ module.exports = {
   createLiveMatch,
   getLiveMatch,
   getActiveLiveMatchForDay,
+  claimLiveMatchFinish,
   updateLiveMatch,
 };

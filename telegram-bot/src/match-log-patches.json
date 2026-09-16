@@ -22,19 +22,32 @@
         { "teamAIdx": 0, "teamBIdx": 2, "scoreA": 0, "scoreB": 2, "scorersA": [], "scorersB": [{ "name": "Дима Князев", "goals": 1 }, { "name": "Дима Князев", "goals": 1, "assist": "Георгий Вагин" }] },
         { "teamAIdx": 1, "teamBIdx": 2, "scoreA": 1, "scoreB": 1, "scorersA": [{ "name": "Паша Вирник", "goals": 1, "assist": "Женя Клюшин" }], "scorersB": [{ "name": "Паша Орлов", "goals": 1, "assist": "Антон Борисов" }] },
         { "teamAIdx": 1, "teamBIdx": 0, "scoreA": 0, "scoreB": 2, "scorersA": [], "scorersB": [{ "name": "Миша Фирсков", "goals": 1 }, { "name": "Влад от Игоря", "goals": 1 }] },
-        { "teamAIdx": 0, "teamBIdx": 2, "scoreA": 1, "scoreB": 0, "scorersA": [{ "name": "Миша Фирсков", "goals": 1 }], "scorersB": [] }
+        {
+          "teamAIdx": 0, "teamBIdx": 2, "scoreA": 1, "scoreB": 0, "scorersA": [{ "name": "Миша Фирсков", "goals": 1 }], "scorersB": [] }
       ]
     },
     {
       "date": "2026-09-16",
-      "mode": "append",
-      "note": "Игры 9–11 дня 16.09: бот завис на игре 9. Команда 3 vs Команда 1 — 0:2 (Илья с паса Ивана, Паша). Команда 1 vs Команда 2 — 0:2 (два гола Князева, один с паса Борисова). Команда 2 vs Команда 3 — 0:1 (Зайцев с паса Олега И). Короткие имена резолвятся по составу команд на сервере. Если на команде 1 два Паши — правка руками.",
+      "mode": "upsert-day",
+      "keepExistingMatches": true,
+      "note": "16.09: официальные составы + не затираем уже записанные игры 1–8. Если протокол пуст — затравка из 7 игр пользователя. Хвост (игры 9–11 после зависания бота) дописывается. Дубль Королькова в команде 2 отбрасывается.",
+      "teams": [
+        { "name": "Команда 1", "colorIdx": 0, "players": ["Ваня от Клюшина", "Паша Вирник", "Илья Сыван", "Дима Корольков", "Петр Звенигородский"] },
+        { "name": "Команда 2", "colorIdx": 1, "players": ["Дима Князев", "Андрей Берликов", "Антон Борисов", "Дима Корольков", "Андрей"] },
+        { "name": "Команда 3", "colorIdx": 2, "players": ["Артем от Димы", "Олег Иохин", "Паша Орлов", "Алексей Зайцев", "Женя Клюшин"] }
+      ],
       "matches": [
+        { "teamAIdx": 1, "teamBIdx": 2, "scoreA": 2, "scoreB": 0, "scorersA": [], "scorersB": [] },
+        { "teamAIdx": 1, "teamBIdx": 0, "scoreA": 2, "scoreB": 0, "scorersA": [], "scorersB": [] },
+        { "teamAIdx": 1, "teamBIdx": 2, "scoreA": 1, "scoreB": 0, "scorersA": [], "scorersB": [] },
+        { "teamAIdx": 1, "teamBIdx": 0, "scoreA": 2, "scoreB": 0, "scorersA": [], "scorersB": [] },
+        { "teamAIdx": 1, "teamBIdx": 2, "scoreA": 0, "scoreB": 1, "scorersA": [], "scorersB": [{ "name": "Леша Зайцев", "goals": 1, "assist": "Олег И" }] },
+        { "teamAIdx": 2, "teamBIdx": 0, "scoreA": 2, "scoreB": 0, "scorersA": [], "scorersB": [] },
+        { "teamAIdx": 2, "teamBIdx": 1, "scoreA": 0, "scoreB": 2, "scorersA": [], "scorersB": [] }
+      ],
+      "append": [
         {
-          "teamAIdx": 2,
-          "teamBIdx": 0,
-          "scoreA": 0,
-          "scoreB": 2,
+          "teamAIdx": 2, "teamBIdx": 0, "scoreA": 0, "scoreB": 2,
           "scorersA": [],
           "scorersB": [
             { "name": "Илья", "goals": 1, "assist": "Иван" },
@@ -42,10 +55,7 @@
           ]
         },
         {
-          "teamAIdx": 0,
-          "teamBIdx": 1,
-          "scoreA": 0,
-          "scoreB": 2,
+          "teamAIdx": 0, "teamBIdx": 1, "scoreA": 0, "scoreB": 2,
           "scorersA": [],
           "scorersB": [
             { "name": "Князев", "goals": 1, "assist": "Борисов" },
@@ -53,10 +63,7 @@
           ]
         },
         {
-          "teamAIdx": 1,
-          "teamBIdx": 2,
-          "scoreA": 0,
-          "scoreB": 1,
+          "teamAIdx": 1, "teamBIdx": 2, "scoreA": 0, "scoreB": 1,
           "scorersA": [],
           "scorersB": [
             { "name": "Леша Зайцев", "goals": 1, "assist": "Олег И" }
