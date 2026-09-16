@@ -44,6 +44,16 @@ const again = db.getAllGameDaysForStats().find(d => datesMatch(d.date, '2026-09-
 eq('idempotent match count', again.matches.length, 10);
 eq('idempotent matches', JSON.stringify(again.matches), before);
 
+const eight = Array.from({ length: 8 }, () => ({
+  teamAIdx: 0, teamBIdx: 1, scoreA: 1, scoreB: 0, scorersA: [], scorersB: [],
+}));
+db.db.prepare('UPDATE game_days SET matches_json = ? WHERE id = ?').run(JSON.stringify(eight), again.id);
+db.applyMatchLogPatches();
+const kept = db.getAllGameDaysForStats().find(d => datesMatch(d.date, '2026-09-16'));
+eq('keep 8 live games and append 9–11', kept.matches.length, 11);
+eq('first 8 untouched', JSON.stringify(kept.matches.slice(0, 8)), JSON.stringify(eight));
+eq('appended game 9 is K3 vs K1 0:2', [kept.matches[8].teamAIdx, kept.matches[8].scoreB], [2, 2]);
+
 if (failed) {
   console.error(`${failed} failed`);
   process.exit(1);
