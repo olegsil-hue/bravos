@@ -64,6 +64,10 @@ const eight = Array.from({ length: 8 }, (_, i) => ({ teamAIdx: 0, teamBIdx: 1, s
 eq('append after 8', applyAppend(eight, incoming).length, 11);
 eq('idempotent', applyAppend(applyAppend(eight, incoming), incoming).length, 11);
 eq('already applied', matchesAlreadyApplied(applyAppend(eight, incoming), incoming), true);
+eq('sequence in the middle is not duplicated', applyAppend(
+  [{ teamAIdx: 0, teamBIdx: 1, scoreA: 1, scoreB: 0 }, ...incoming, { teamAIdx: 0, teamBIdx: 1, scoreA: 2, scoreB: 0 }],
+  incoming
+).length, 5);
 
 const withStuckGame9 = [...eight, { teamAIdx: 2, teamBIdx: 0, scoreA: 0, scoreB: 0 }];
 eq('replace stuck game 9', applyAppend(withStuckGame9, incoming).length, 11);

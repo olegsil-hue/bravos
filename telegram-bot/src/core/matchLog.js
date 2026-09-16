@@ -94,11 +94,20 @@ function matchesAlreadyApplied(existing, incoming) {
   return tail.every((m, i) => samePairAndScore(m, incoming[i]));
 }
 
+function containsSequence(existing, incoming) {
+  if (!incoming.length || existing.length < incoming.length) return false;
+  for (let i = 0; i <= existing.length - incoming.length; i++) {
+    if (incoming.every((m, j) => samePairAndScore(existing[i + j], incoming[j]))) return true;
+  }
+  return false;
+}
+
 /** Дописывает матчи в конец дня. Если последняя записанная игра — та же пара,
  *  что первая в патче (бот завис на ней), заменяем её, а не дублируем. */
 function applyAppend(existing, incoming) {
-  if (matchesAlreadyApplied(existing, incoming)) return existing;
-  if (existing.length > 0 && incoming.length > 0 && samePair(existing[existing.length - 1], incoming[0])) {
+  if (!incoming.length) return existing;
+  if (matchesAlreadyApplied(existing, incoming) || containsSequence(existing, incoming)) return existing;
+  if (existing.length > 0 && samePair(existing[existing.length - 1], incoming[0])) {
     return [...existing.slice(0, -1), ...incoming];
   }
   return [...existing, ...incoming];
@@ -167,6 +176,7 @@ module.exports = {
   resolveMatch,
   applyAppend,
   matchesAlreadyApplied,
+  containsSequence,
   datesMatch,
   dedupePlayersAcrossTeams,
   winnerStaysNext,

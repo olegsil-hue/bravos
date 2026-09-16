@@ -386,16 +386,21 @@ applyAdditionalLegacyGameDays();
 //     протоколе используется как затравка, append — дописывается через
 //     applyAppend. Без keepExistingMatches — полная замена matches_json.
 //     Если дня ещё нет — создаёт. Дубли имён между командами выкидываются.
-function findGameDayRowForPatch(p) {
-  if (p.id) {
-    const byId = db.prepare('SELECT * FROM game_days WHERE id = ?').get(p.id);
-    if (byId) return byId;
-  }
+function findGameDayRowsForPatch(p) {
+  const rows = [];
+  const seen = new Set();
+  const add = row => {
+    if (!row || seen.has(row.id)) return;
+    seen.add(row.id);
+    rows.push(row);
+  };
+  if (p.id) add(db.prepare('SELECT * FROM game_days WHERE id = ?').get(p.id));
   if (p.date) {
-    const rows = db.prepare('SELECT * FROM game_days WHERE legacy = 0 ORDER BY id DESC').all();
-    return rows.find(r => datesMatch(r.date, p.date)) || null;
+    db.prepare('SELECT * FROM game_days WHERE legacy = 0 ORDER BY id DESC').all()
+      .filter(r => datesMatch(r.date, p.date))
+      .forEach(add);
   }
-  return null;
+  return rows;
 }
 
 function applyMatchLogPatches() {
@@ -407,36 +412,38 @@ function applyMatchLogPatches() {
   }
   let applied = 0;
   patches.forEach(p => {
-    let row = findGameDayRowForPatch(p);
-    if (!row) {
+    let rows = findGameDayRowsForPatch(p);
+    if (!rows.length) {
       if (p.mode === 'upsert-day' && p.date && p.teams) {
         const info = db.prepare(`
           INSERT INTO game_days (date, legacy, teams_json, matches_json, status)
           VALUES (?, 0, '[]', '[]', 'completed')
         `).run(p.date);
-        row = db.prepare('SELECT * FROM game_days WHERE id = ?').get(info.lastInsertRowid);
+        rows = [db.prepare('SELECT * FROM game_days WHERE id = ?').get(info.lastInsertRowid)];
       } else {
         console.warn(`⚠️ match-log-patches: день ${p.date || '#' + p.id} не найден в базе — пропускаю.`);
         return;
       }
     }
+    rows.forEach(row => {
     if (p.mode === 'upsert-day') {
       const teams = p.teams || JSON.parse(row.teams_json || '[]');
       const { teams: uniqueTeams, dropped } = dedupePlayersAcrossTeams(teams);
-      if (dropped.length) console.warn(`⚠️ match-log-patches ${p.date}: дубли между командами пропущены: ${[...new Set(dropped)].join(', ')}`);
       let nextMatches;
       try {
         const existing = JSON.parse(row.matches_json || '[]');
+        const seed = (p.matches || []).map(m => resolveMatch(uniqueTeams, m));
+        const tail = (p.append || []).map(m => resolveMatch(uniqueTeams, m));
+        const canonical = tail.length ? applyAppend(seed, tail) : seed;
         if (p.keepExistingMatches) {
-          nextMatches = existing.length ? existing : (p.matches || []).map(m => resolveMatch(uniqueTeams, m));
-          if (p.append && p.append.length) {
-            nextMatches = applyAppend(nextMatches, p.append.map(m => resolveMatch(uniqueTeams, m)));
+          const threshold = p.minMatches != null ? p.minMatches : Infinity;
+          if (!existing.length || existing.length < threshold) {
+            nextMatches = canonical;
+          } else {
+            nextMatches = tail.length ? applyAppend(existing, tail) : existing;
           }
         } else {
-          nextMatches = (p.matches || []).map(m => resolveMatch(uniqueTeams, m));
-          if (p.append && p.append.length) {
-            nextMatches = applyAppend(nextMatches, p.append.map(m => resolveMatch(uniqueTeams, m)));
-          }
+          nextMatches = canonical;
         }
       } catch (err) {
         console.warn(`⚠️ match-log-patches upsert-day ${p.date}: ${err.message}`);
@@ -445,6 +452,7 @@ function applyMatchLogPatches() {
       const sameTeams = JSON.stringify(JSON.parse(row.teams_json || '[]')) === JSON.stringify(uniqueTeams);
       const sameMatches = JSON.stringify(JSON.parse(row.matches_json || '[]')) === JSON.stringify(nextMatches);
       if (sameTeams && sameMatches) return;
+      if (dropped.length) console.warn(`⚠️ match-log-patches ${p.date}: дубли между командами пропущены: ${[...new Set(dropped)].join(', ')}`);
       db.prepare("UPDATE game_days SET teams_json = ?, matches_json = ?, status = 'completed' WHERE id = ?")
         .run(JSON.stringify(uniqueTeams), JSON.stringify(nextMatches), row.id);
       db.prepare("UPDATE live_matches SET status = 'finished' WHERE game_day_id = ? AND status = 'in_progress'").run(row.id);
@@ -468,8 +476,11 @@ function applyMatchLogPatches() {
       applied++;
       return;
     }
+    const current = JSON.parse(row.matches_json || '[]');
+    if (JSON.stringify(current) === JSON.stringify(p.matches)) return;
     const r = db.prepare('UPDATE game_days SET matches_json = ? WHERE id = ?').run(JSON.stringify(p.matches), row.id);
     if (r.changes) applied++;
+    });
   });
   if (applied) console.log(`Применены патчи протокола мини-игр: ${applied}.`);
 }
@@ -530,6 +541,7 @@ function setPlayerTelegramDisplayName(name, displayName) {
 // --- Игровые дни (для core/stats.js — тот же объектный вид, что и в вебе) ---
 
 function getAllGameDaysForStats() {
+  applyMatchLogPatches();
   const rows = db.prepare('SELECT * FROM game_days').all();
   return rows.map(r => ({
     id: r.id,
@@ -619,6 +631,7 @@ function replaceState(roster, gameDays) {
     }));
   });
   tx();
+  applyMatchLogPatches();
 }
 
 function insertGameDay(day) {

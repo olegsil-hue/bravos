@@ -54,6 +54,12 @@ eq('keep 8 live games and append 9–11', kept.matches.length, 11);
 eq('first 8 untouched', JSON.stringify(kept.matches.slice(0, 8)), JSON.stringify(eight));
 eq('appended game 9 is K3 vs K1 0:2', [kept.matches[8].teamAIdx, kept.matches[8].scoreB], [2, 2]);
 
+const seven = kept.matches.slice(0, 7);
+db.db.prepare('UPDATE game_days SET matches_json = ? WHERE id = ?').run(JSON.stringify(seven), kept.id);
+const afterSeven = db.getAllGameDaysForStats().find(d => datesMatch(d.date, '2026-09-16'));
+eq('7 games on page load become 10', afterSeven.matches.length, 10);
+eq('game 8 after backfill is K3 vs K1', [afterSeven.matches[7].teamAIdx, afterSeven.matches[7].teamBIdx, afterSeven.matches[7].scoreB], [2, 0, 2]);
+
 if (failed) {
   console.error(`${failed} failed`);
   process.exit(1);

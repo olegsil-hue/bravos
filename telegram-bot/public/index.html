@@ -737,6 +737,13 @@
                 body: JSON.stringify({ roster: window.roster, gameDays: window.gameDays }),
             }).then(res => {
                 if (!res.ok) throw new Error('HTTP ' + res.status);
+                return res.json();
+            }).then(data => {
+                if (data && Array.isArray(data.gameDays)) {
+                    window.gameDays = data.gameDays;
+                    if (Array.isArray(data.roster)) window.roster = data.roster;
+                    window.refreshGameStatsCache();
+                }
                 const el = document.getElementById('saveErrorBanner');
                 if (el) el.remove();
             }).catch(err => {

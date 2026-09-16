@@ -449,6 +449,12 @@ async function saveFullState() {
         body: JSON.stringify({ roster, gameDays }),
     });
     if (!res.ok) throw new Error('HTTP ' + res.status);
+    const data = await res.json();
+    if (data && Array.isArray(data.gameDays)) {
+        gameDays = data.gameDays;
+        if (Array.isArray(data.roster)) roster = data.roster;
+        gameStatsCache = computePlayerGameStats();
+    }
 }
 
 // ===================================================================
