@@ -1,5 +1,5 @@
 {
-  "_comment": "Точечные патчи протокола мини-игр (matches) для уже существующих игровых дней — не трогают teams_json (составы уже верно сохранены через веб-приложение). Применяется на каждом запуске (applyMatchLogPatches в db.js) — ВСЕГДА перезаписывает matches_json для дней из этого файла (авторитетные подправленные данные, как known-roster-factor-overrides.json), поэтому сюда можно вносить дальнейшие точечные правки. Использовать только для дней, чей протокол целиком ведётся из чат-лога — не для дней, которые реально пишутся вживую через /start_game.",
+  "_comment": "Точечные патчи протокола мини-игр (matches) для уже существующих игровых дней — не трогают teams_json. Применяется на каждом запуске (applyMatchLogPatches в db.js). Режим по умолчанию (без mode) — ПОЛНАЯ перезапись matches_json по id, только для дней, чей протокол целиком из чат-лога. mode=append — дописать матчи в конец дня, найденного по date (или id), не затирая уже записанные игры; короткие имена резолвятся по составу команды. Повторный запуск идемпотентен.",
   "patches": [
     {
       "id": 1787555219936,
@@ -22,7 +22,54 @@
         { "teamAIdx": 0, "teamBIdx": 2, "scoreA": 0, "scoreB": 2, "scorersA": [], "scorersB": [{ "name": "Дима Князев", "goals": 1 }, { "name": "Дима Князев", "goals": 1, "assist": "Георгий Вагин" }] },
         { "teamAIdx": 1, "teamBIdx": 2, "scoreA": 1, "scoreB": 1, "scorersA": [{ "name": "Паша Вирник", "goals": 1, "assist": "Женя Клюшин" }], "scorersB": [{ "name": "Паша Орлов", "goals": 1, "assist": "Антон Борисов" }] },
         { "teamAIdx": 1, "teamBIdx": 0, "scoreA": 0, "scoreB": 2, "scorersA": [], "scorersB": [{ "name": "Миша Фирсков", "goals": 1 }, { "name": "Влад от Игоря", "goals": 1 }] },
-        { "teamAIdx": 0, "teamBIdx": 2, "scoreA": 1, "scoreB": 0, "scorersA": [{ "name": "Миша Фирсков", "goals": 1 }], "scorersB": [] }
+        {
+          "teamAIdx": 0, "teamBIdx": 2, "scoreA": 1, "scoreB": 0, "scorersA": [{ "name": "Миша Фирсков", "goals": 1 }], "scorersB": [] }
+      ]
+    },
+    {
+      "date": "2026-09-16",
+      "mode": "upsert-day",
+      "keepExistingMatches": true,
+      "minMatches": 8,
+      "note": "16.09: составы + полный протокол из 10 игр (7 записанных + игры 8–10, раньше назывались 9–11 после зависания). Если в базе меньше 8 игр — записываем все 10. Если уже есть 8+ живых — дописываем хвост, не затирая начало. Патч применяется при каждом чтении /api/state, не только при старте бота.",
+      "teams": [
+        { "name": "Команда 1", "colorIdx": 0, "players": ["Ваня от Клюшина", "Паша Вирник", "Илья Сыван", "Дима Корольков", "Петр Звенигородский"] },
+        { "name": "Команда 2", "colorIdx": 1, "players": ["Дима Князев", "Андрей Берликов", "Антон Борисов", "Дима Корольков", "Андрей"] },
+        { "name": "Команда 3", "colorIdx": 2, "players": ["Артем от Димы", "Олег Иохин", "Паша Орлов", "Алексей Зайцев", "Женя Клюшин"] }
+      ],
+      "matches": [
+        { "teamAIdx": 1, "teamBIdx": 2, "scoreA": 2, "scoreB": 0, "scorersA": [], "scorersB": [] },
+        { "teamAIdx": 1, "teamBIdx": 0, "scoreA": 2, "scoreB": 0, "scorersA": [], "scorersB": [] },
+        { "teamAIdx": 1, "teamBIdx": 2, "scoreA": 1, "scoreB": 0, "scorersA": [], "scorersB": [] },
+        { "teamAIdx": 1, "teamBIdx": 0, "scoreA": 2, "scoreB": 0, "scorersA": [], "scorersB": [] },
+        { "teamAIdx": 1, "teamBIdx": 2, "scoreA": 0, "scoreB": 1, "scorersA": [], "scorersB": [{ "name": "Леша Зайцев", "goals": 1, "assist": "Олег И" }] },
+        { "teamAIdx": 2, "teamBIdx": 0, "scoreA": 2, "scoreB": 0, "scorersA": [], "scorersB": [] },
+        { "teamAIdx": 2, "teamBIdx": 1, "scoreA": 0, "scoreB": 2, "scorersA": [], "scorersB": [] }
+      ],
+      "append": [
+        {
+          "teamAIdx": 2, "teamBIdx": 0, "scoreA": 0, "scoreB": 2,
+          "scorersA": [],
+          "scorersB": [
+            { "name": "Илья", "goals": 1, "assist": "Иван" },
+            { "name": "Паша", "goals": 1 }
+          ]
+        },
+        {
+          "teamAIdx": 0, "teamBIdx": 1, "scoreA": 0, "scoreB": 2,
+          "scorersA": [],
+          "scorersB": [
+            { "name": "Князев", "goals": 1, "assist": "Борисов" },
+            { "name": "Князев", "goals": 1 }
+          ]
+        },
+        {
+          "teamAIdx": 1, "teamBIdx": 2, "scoreA": 0, "scoreB": 1,
+          "scorersA": [],
+          "scorersB": [
+            { "name": "Леша Зайцев", "goals": 1, "assist": "Олег И" }
+          ]
+        }
       ]
     }
   ]

@@ -138,7 +138,7 @@
 
     <section>
         <h2>🥅 Запись результатов игры</h2>
-        <p class="hint">Выберите игровой день, затем добавляйте мини-игры: отмечайте голы кнопкой у нужной команды (с автором и, если был, пасом), для гола в свои ворота — кнопка «автогол».</p>
+        <p class="hint">Выберите игровой день, поставьте счёт (авторы голов необязательны) и нажмите «Завершить матч». Победитель остаётся — следующая пара подставится сама.</p>
         <div class="row">
             <div>
                 <label>Игровой день</label>
@@ -157,6 +157,17 @@
                 <div>
                     <label>Команда Б</label>
                     <select id="teamBSelect" onchange="renderMatchForm()"></select>
+                </div>
+            </div>
+
+            <div class="row" style="margin-top:14px;">
+                <div>
+                    <label>Счёт А</label>
+                    <input type="number" id="scoreAInput" min="0" value="0" oninput="renderMatchForm()">
+                </div>
+                <div>
+                    <label>Счёт Б</label>
+                    <input type="number" id="scoreBInput" min="0" value="0" oninput="renderMatchForm()">
                 </div>
             </div>
 
@@ -189,7 +200,7 @@
             </div>
 
             <div class="row" style="margin-top:16px;">
-                <div style="flex:0;"><button class="btn-primary" onclick="submitMatch()">➕ Сохранить игру</button></div>
+                <div style="flex:0;"><button class="btn-primary" type="button" onclick="submitMatch()" id="matchSubmitBtn">🏁 Завершить матч</button></div>
                 <div style="flex:0;"><button class="btn-danger" onclick="removeLastMatch()">↩️ Удалить последнюю игру дня</button></div>
             </div>
             <div id="matchMsg"></div>
@@ -438,6 +449,12 @@ async function saveFullState() {
         body: JSON.stringify({ roster, gameDays }),
     });
     if (!res.ok) throw new Error('HTTP ' + res.status);
+    const data = await res.json();
+    if (data && Array.isArray(data.gameDays)) {
+        gameDays = data.gameDays;
+        if (Array.isArray(data.roster)) roster = data.roster;
+        gameStatsCache = computePlayerGameStats();
+    }
 }
 
 // ===================================================================
@@ -600,14 +617,27 @@ function renderDaySelect() {
 
 function currentDay() {
     const id = Number(document.getElementById('daySelect').value);
-    return gameDays.find(d => d.id === id) || null;
+    return gameDays.find(d => Number(d.id) === id) || null;
 }
 
-function onDaySelected() {
-    const day = currentDay();
-    const existingContainer = document.getElementById('existingMatches');
-    if (!day) { document.getElementById('matchForm').hidden = true; existingContainer.innerHTML = ''; return; }
+function winnerStaysNext(teamsLength, teamAIdx, teamBIdx, scoreA, scoreB, wonByPenalties) {
+    let sitting = null;
+    for (let i = 0; i < teamsLength; i++) {
+        if (i !== teamAIdx && i !== teamBIdx) { sitting = i; break; }
+    }
+    let winnerIdx = null;
+    if (typeof wonByPenalties === 'number') winnerIdx = wonByPenalties;
+    else if (scoreA > scoreB) winnerIdx = teamAIdx;
+    else if (scoreB > scoreA) winnerIdx = teamBIdx;
+    if (teamsLength < 3 || sitting === null || winnerIdx === null) {
+        return { teamAIdx, teamBIdx };
+    }
+    return { teamAIdx: winnerIdx, teamBIdx: sitting };
+}
 
+function renderExistingMatches(day) {
+    const existingContainer = document.getElementById('existingMatches');
+    if (!day) { existingContainer.innerHTML = ''; return; }
     existingContainer.innerHTML = (day.matches || []).length ? `
         <table class="mini">
             <thead><tr><th>#</th><th>Команда А</th><th>Счёт</th><th>Команда Б</th></tr></thead>
@@ -616,6 +646,13 @@ function onDaySelected() {
             </tbody>
         </table>
     ` : '<div class="empty-state">Игр в этот день пока не записано.</div>';
+}
+
+function onDaySelected() {
+    const day = currentDay();
+    if (!day) { document.getElementById('matchForm').hidden = true; renderExistingMatches(null); return; }
+
+    renderExistingMatches(day);
 
     const teamASelect = document.getElementById('teamASelect');
     const teamBSelect = document.getElementById('teamBSelect');
@@ -625,6 +662,10 @@ function onDaySelected() {
     if (day.teams.length > 1) teamBSelect.value = '1';
 
     goalsA = []; goalsB = [];
+    const scoreAInput = document.getElementById('scoreAInput');
+    const scoreBInput = document.getElementById('scoreBInput');
+    if (scoreAInput) scoreAInput.value = '0';
+    if (scoreBInput) scoreBInput.value = '0';
     document.getElementById('matchForm').hidden = false;
     renderMatchForm();
 }
@@ -634,10 +675,15 @@ function addGoal(side, isOwnGoal) {
     if (!day) return;
     const arr = side === 'A' ? goalsA : goalsB;
     arr.push(isOwnGoal ? { ownGoal: true } : { player: '', assist: '' });
+    const input = document.getElementById(side === 'A' ? 'scoreAInput' : 'scoreBInput');
+    if (input) input.value = String(arr.length);
     renderMatchForm();
 }
 function removeGoal(side, idx) {
-    (side === 'A' ? goalsA : goalsB).splice(idx, 1);
+    const arr = side === 'A' ? goalsA : goalsB;
+    arr.splice(idx, 1);
+    const input = document.getElementById(side === 'A' ? 'scoreAInput' : 'scoreBInput');
+    if (input) input.value = String(arr.length);
     renderMatchForm();
 }
 function updateGoalField(side, idx, field, value) {
@@ -652,8 +698,12 @@ function renderMatchForm() {
     const teamA = day.teams[teamAIdx], teamB = day.teams[teamBIdx];
     document.getElementById('teamAName').textContent = teamA ? teamA.name : '—';
     document.getElementById('teamBName').textContent = teamB ? teamB.name : '—';
-    document.getElementById('scoreADisplay').textContent = goalsA.length;
-    document.getElementById('scoreBDisplay').textContent = goalsB.length;
+    document.getElementById('scoreADisplay').textContent = document.getElementById('scoreAInput')
+        ? document.getElementById('scoreAInput').value
+        : goalsA.length;
+    document.getElementById('scoreBDisplay').textContent = document.getElementById('scoreBInput')
+        ? document.getElementById('scoreBInput').value
+        : goalsB.length;
 
     const playerOpts = players => players.map(n => `<option value="${n}">${n}</option>`).join('');
 
@@ -688,7 +738,8 @@ function renderMatchForm() {
     });
 
     const penaltyBlock = document.getElementById('penaltyBlock');
-    const isDraw = goalsA.length === goalsB.length;
+    const isDraw = Number((document.getElementById('scoreAInput') || {}).value || goalsA.length)
+        === Number((document.getElementById('scoreBInput') || {}).value || goalsB.length);
     penaltyBlock.hidden = !isDraw;
     const penChecked = document.getElementById('penaltyCheck').checked;
     document.getElementById('penaltyWinnerRow').hidden = !(isDraw && penChecked);
@@ -697,36 +748,48 @@ function renderMatchForm() {
 
 async function submitMatch() {
     const msg = document.getElementById('matchMsg');
+    const btn = document.getElementById('matchSubmitBtn');
     const day = currentDay();
     if (!day) return;
     const teamAIdx = Number(document.getElementById('teamASelect').value);
     const teamBIdx = Number(document.getElementById('teamBSelect').value);
     if (teamAIdx === teamBIdx) { msg.innerHTML = '<div class="msg err">❌ Команда А и Б должны быть разными.</div>'; return; }
-    const missingPlayer = [...goalsA, ...goalsB].find(g => !g.ownGoal && !g.player);
-    if (missingPlayer) { msg.innerHTML = '<div class="msg err">❌ У одного из голов не выбран автор — выберите игрока или удалите строку.</div>'; return; }
 
-    const toScorers = arr => arr.map(g => g.ownGoal ? { name: 'Автогол', goals: 1 } : { name: g.player, goals: 1, ...(g.assist ? { assist: g.assist } : {}) });
+    const scoreA = Math.max(0, Number(document.getElementById('scoreAInput').value) || goalsA.length);
+    const scoreB = Math.max(0, Number(document.getElementById('scoreBInput').value) || goalsB.length);
+    const toScorers = arr => arr
+        .filter(g => g.ownGoal || g.player)
+        .map(g => g.ownGoal ? { name: 'Автогол', goals: 1 } : { name: g.player, goals: 1, ...(g.assist ? { assist: g.assist } : {}) });
     const match = {
         teamAIdx, teamBIdx,
-        scoreA: goalsA.length, scoreB: goalsB.length,
+        scoreA, scoreB,
         scorersA: toScorers(goalsA), scorersB: toScorers(goalsB),
     };
-    if (goalsA.length === goalsB.length && document.getElementById('penaltyCheck').checked) {
+    if (scoreA === scoreB && document.getElementById('penaltyCheck').checked) {
         match.wonByPenalties = document.getElementById('penaltyWinner').value === 'A' ? teamAIdx : teamBIdx;
     }
 
+    if (btn) btn.disabled = true;
+    msg.innerHTML = '<div class="msg ok">Сохраняю…</div>';
     try {
         day.matches = day.matches || [];
         day.matches.push(match);
         await saveFullState();
-        msg.innerHTML = '<div class="msg ok">✓ Игра добавлена.</div>';
+        const next = winnerStaysNext(day.teams.length, teamAIdx, teamBIdx, scoreA, scoreB, match.wonByPenalties);
         goalsA = []; goalsB = [];
         document.getElementById('penaltyCheck').checked = false;
-        onDaySelected();
+        document.getElementById('scoreAInput').value = '0';
+        document.getElementById('scoreBInput').value = '0';
+        renderExistingMatches(day);
+        document.getElementById('teamASelect').value = String(next.teamAIdx);
+        document.getElementById('teamBSelect').value = String(next.teamBIdx);
+        renderMatchForm();
+        msg.innerHTML = '<div class="msg ok">Ок, начат след матч</div>';
     } catch (e) {
-        // откатываем локально добавленную игру, раз сохранить не удалось
         day.matches.pop();
         msg.innerHTML = '<div class="msg err">❌ ' + e.message + '</div>';
+    } finally {
+        if (btn) btn.disabled = false;
     }
 }
 
@@ -737,8 +800,8 @@ async function removeLastMatch() {
     const removed = day.matches.pop();
     try {
         await saveFullState();
+        renderExistingMatches(day);
         msg.innerHTML = '<div class="msg ok">✓ Последняя игра дня удалена.</div>';
-        onDaySelected();
     } catch (e) {
         day.matches.push(removed);
         msg.innerHTML = '<div class="msg err">❌ ' + e.message + '</div>';

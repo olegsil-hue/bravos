@@ -6,6 +6,7 @@
 
 const { Markup } = require('telegraf');
 const db = require('./db');
+const { winnerStaysNext } = require('./core/matchLog');
 
 function teamLabel(day, idx) {
   return day.teams[idx] ? day.teams[idx].name : `Команда ${idx + 1}`;
@@ -42,9 +43,9 @@ function mainKeyboard(match, day) {
     ],
   ];
   if (match.scoreA !== match.scoreB) {
-    rows.push([Markup.button.callback('🏁 Матч окончен', `endmatch_${match.id}`)]);
+    rows.push([Markup.button.callback('🏁 Завершить матч', `endmatch_${match.id}`)]);
   } else {
-    rows.push([Markup.button.callback('🏁 Матч окончен (ничья)', `endmatch_${match.id}`)]);
+    rows.push([Markup.button.callback('🏁 Завершить матч (ничья)', `endmatch_${match.id}`)]);
   }
   if (match.scorersA.length + match.scorersB.length > 0) {
     rows.push([Markup.button.callback('↩️ Отменить последний гол', `undo_${match.id}`)]);
@@ -185,10 +186,21 @@ async function handleCancelPick(bot, ctx, matchId) {
 
 async function handleEndMatch(bot, ctx, matchId) {
   const match = db.getLiveMatch(matchId);
+  if (!match) return ctx.answerCbQuery('Матч не найден');
+  if (match.status === 'finished') return ctx.answerCbQuery('Ок, начат след матч');
+
   const day = db.getGameDayById(match.gameDayId);
+  if (!day) return ctx.answerCbQuery('День не найден');
+
+  // Ответить на callback сразу — иначе Telegram считает кнопку мёртвой
+  // (лимит ~10 с), и «Матч окончен» визуально зависает.
+  try {
+    await ctx.answerCbQuery('Ок, начат след матч');
+  } catch (e) {
+    console.error('answerCbQuery endmatch:', e.message);
+  }
 
   if (match.scoreA === match.scoreB) {
-    // Ничья: спрашиваем, был ли победитель по буллитам, или оставляем ничью.
     await ctx.editMessageText(
       scoreboardText(match, day) + '\n\nНичья. Есть победитель по пенальти?',
       Markup.inlineKeyboard([
@@ -197,24 +209,42 @@ async function handleEndMatch(bot, ctx, matchId) {
         [Markup.button.callback('Просто ничья, без буллитов', `pk_${matchId}_none`)],
       ])
     );
-    await ctx.answerCbQuery();
     return;
   }
 
-  await finishMatch(bot, match, day, null);
-  await ctx.answerCbQuery();
+  try {
+    await finishMatch(bot, match, day, null);
+  } catch (err) {
+    console.error('finishMatch:', err);
+    if (match.chatId) {
+      await bot.telegram.sendMessage(match.chatId, '❌ Не удалось завершить матч: ' + err.message);
+    }
+  }
 }
 
 async function handlePenaltyWinner(bot, ctx, matchId, winnerTeamIdxOrNone) {
   const match = db.getLiveMatch(matchId);
+  if (!match) return ctx.answerCbQuery('Матч не найден');
+  if (match.status === 'finished') return ctx.answerCbQuery('Ок, начат след матч');
   const day = db.getGameDayById(match.gameDayId);
   const wonByPenalties = winnerTeamIdxOrNone === 'none' ? null : Number(winnerTeamIdxOrNone);
-  await finishMatch(bot, match, day, wonByPenalties);
-  await ctx.answerCbQuery();
+  try {
+    await ctx.answerCbQuery('Ок, начат след матч');
+  } catch (e) {
+    console.error('answerCbQuery pk:', e.message);
+  }
+  try {
+    await finishMatch(bot, match, day, wonByPenalties);
+  } catch (err) {
+    console.error('finishMatch pk:', err);
+    if (match.chatId) {
+      await bot.telegram.sendMessage(match.chatId, '❌ Не удалось завершить матч: ' + err.message);
+    }
+  }
 }
 
 async function finishMatch(bot, match, day, wonByPenalties) {
-  db.updateLiveMatch(match.id, { status: 'finished' });
+  if (!db.claimLiveMatchFinish(match.id)) return;
 
   db.appendMatchToGameDay(day.id, {
     teamAIdx: match.teamAIdx,
@@ -226,37 +256,27 @@ async function finishMatch(bot, match, day, wonByPenalties) {
     ...(wonByPenalties !== null && wonByPenalties !== undefined ? { wonByPenalties } : {}),
   });
 
-  const winnerIdx = wonByPenalties !== null && wonByPenalties !== undefined
-    ? wonByPenalties
-    : (match.scoreA > match.scoreB ? match.teamAIdx : (match.scoreB > match.scoreA ? match.teamBIdx : null));
-  const loserIdx = winnerIdx === null ? null
-    : (winnerIdx === match.teamAIdx ? match.teamBIdx : match.teamAIdx);
+  const nextPair = winnerStaysNext({
+    teamAIdx: match.teamAIdx,
+    teamBIdx: match.teamBIdx,
+    sittingOutIdx: match.sittingOutIdx,
+    scoreA: match.scoreA,
+    scoreB: match.scoreB,
+    teamCount: day.teams.length,
+    wonByPenalties,
+  });
 
-  const resultLine = winnerIdx === null
+  const resultLine = nextPair.winnerIdx === null
     ? `\n\n🤝 Ничья ${match.scoreA}:${match.scoreB}. Следующая игра — те же команды.`
-    : `\n\n🏆 Победа: ${teamLabel(day, winnerIdx)}!`;
-  await bot.telegram.sendMessage(match.chatId, scoreboardText(match, day) + resultLine);
-
-  // Определяем состав следующей игры.
-  let nextA, nextB, nextSittingOut;
-  if (day.teams.length < 3 || match.sittingOutIdx === null || match.sittingOutIdx === undefined) {
-    // 2 команды — просто следующая игра между теми же двумя.
-    nextA = match.teamAIdx; nextB = match.teamBIdx; nextSittingOut = null;
-  } else if (winnerIdx === null) {
-    // Ничья без буллитов — состав не меняем.
-    nextA = match.teamAIdx; nextB = match.teamBIdx; nextSittingOut = match.sittingOutIdx;
-  } else {
-    nextA = winnerIdx;
-    nextB = match.sittingOutIdx;
-    nextSittingOut = loserIdx;
-  }
+    : `\n\n🏆 Победа: ${teamLabel(day, nextPair.winnerIdx)}!`;
+  await bot.telegram.sendMessage(match.chatId, scoreboardText(match, day) + resultLine + '\n\nОк, начат след матч');
 
   let next = db.createLiveMatch({
     gameDayId: day.id,
     matchNumber: match.matchNumber + 1,
-    teamAIdx: nextA,
-    teamBIdx: nextB,
-    sittingOutIdx: nextSittingOut,
+    teamAIdx: nextPair.nextA,
+    teamBIdx: nextPair.nextB,
+    sittingOutIdx: nextPair.nextSittingOut,
   });
   next = db.updateLiveMatch(next.id, { chatId: match.chatId });
   await renderMatch(bot, next, db.getGameDayById(day.id));

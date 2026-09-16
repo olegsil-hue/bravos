@@ -493,8 +493,9 @@
                     </div>
                     <div id="matchScorers" class="game-teams-form"></div>
                     <div class="input-helper" style="margin-top: 10px;">Голы по игрокам — необязательно, для личной статистики. Счёт вводится отдельно.</div>
+                    <div id="matchAck" class="message" style="display:none;margin:12px 0 0;"></div>
                     <div class="button-group">
-                        <button class="btn-primary" onclick="window.saveMatch()" id="matchSubmitBtn">💾 Сохранить результат</button>
+                        <button class="btn-primary" type="button" onclick="window.saveMatch()" id="matchSubmitBtn">🏁 Завершить матч</button>
                         <button class="btn-secondary" onclick="window.cancelMatchForm()">✖️ Отмена</button>
                     </div>
                 </div>
@@ -729,18 +730,26 @@
 
         window.saveData = function() {
             window.refreshGameStatsCache();
-            if (window.offlineMode) return; // нет соединения с сервером — некуда писать
-            fetch('/api/state', {
+            if (window.offlineMode) return Promise.resolve();
+            return fetch('/api/state', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ roster: window.roster, gameDays: window.gameDays }),
             }).then(res => {
                 if (!res.ok) throw new Error('HTTP ' + res.status);
+                return res.json();
+            }).then(data => {
+                if (data && Array.isArray(data.gameDays)) {
+                    window.gameDays = data.gameDays;
+                    if (Array.isArray(data.roster)) window.roster = data.roster;
+                    window.refreshGameStatsCache();
+                }
                 const el = document.getElementById('saveErrorBanner');
                 if (el) el.remove();
             }).catch(err => {
                 console.error('Не удалось сохранить на сервере:', err);
                 window.showSaveErrorBanner();
+                throw err;
             });
         };
 
@@ -751,6 +760,28 @@
             window.playerGameStatsCache = typeof window.computePlayerGameStats === 'function'
                 ? window.computePlayerGameStats()
                 : {};
+        };
+
+        window.findGameDayById = function(id) {
+            const n = Number(id);
+            if (!Number.isFinite(n)) return null;
+            return window.gameDays.find(d => Number(d.id) === n) || null;
+        };
+
+        // Победитель остаётся, проигравший уступает место той команде, что отдыхала.
+        window.winnerStaysNext = function(teamsLength, teamAIdx, teamBIdx, scoreA, scoreB, wonByPenalties) {
+            let sitting = null;
+            for (let i = 0; i < teamsLength; i++) {
+                if (i !== teamAIdx && i !== teamBIdx) { sitting = i; break; }
+            }
+            let winnerIdx = null;
+            if (typeof wonByPenalties === 'number') winnerIdx = wonByPenalties;
+            else if (scoreA > scoreB) winnerIdx = teamAIdx;
+            else if (scoreB > scoreA) winnerIdx = teamBIdx;
+            if (teamsLength < 3 || sitting === null || winnerIdx === null) {
+                return { teamAIdx: teamAIdx, teamBIdx: teamBIdx };
+            }
+            return { teamAIdx: winnerIdx, teamBIdx: sitting };
         };
 
         window.findPlayer = function(name) {
@@ -1655,13 +1686,12 @@
                 return;
             }
             select.innerHTML = eligible.map(d => `<option value="${d.id}">${window.formatDate(d.date)}</option>`).join('');
-            if (preselectDayId && eligible.some(d => d.id === preselectDayId)) select.value = preselectDayId;
+            if (preselectDayId && eligible.some(d => Number(d.id) === Number(preselectDayId))) select.value = preselectDayId;
             window.onMatchDayChange();
         };
 
         window.onMatchDayChange = function() {
-            const dayId = parseInt(document.getElementById('matchDaySelect').value);
-            const day = window.gameDays.find(d => d.id === dayId);
+            const day = window.findGameDayById(document.getElementById('matchDaySelect').value);
             const teamASelect = document.getElementById('matchTeamA');
             const teamBSelect = document.getElementById('matchTeamB');
             if (!day) { teamASelect.innerHTML = ''; teamBSelect.innerHTML = ''; document.getElementById('matchScorers').innerHTML = ''; return; }
@@ -1674,8 +1704,7 @@
         };
 
         window.onMatchTeamChange = function() {
-            const dayId = parseInt(document.getElementById('matchDaySelect').value);
-            const day = window.gameDays.find(d => d.id === dayId);
+            const day = window.findGameDayById(document.getElementById('matchDaySelect').value);
             const container = document.getElementById('matchScorers');
             if (!day) { container.innerHTML = ''; return; }
 
@@ -1766,49 +1795,77 @@
             return result;
         };
 
-        window.saveMatch = function() {
+        window.setMatchAck = function(text, kind) {
+            const ack = document.getElementById('matchAck');
             const msgDiv = document.getElementById('gamesMessages');
-            const dayId = parseInt(document.getElementById('matchDaySelect').value);
-            const day = window.gameDays.find(d => d.id === dayId);
-            if (!day) {
-                msgDiv.innerHTML = '<div class="message error-message">❌ Выберите игровой день</div>';
-                return;
+            const html = text
+                ? `<div class="message ${kind === 'error' ? 'error-message' : 'success-message'}">${text}</div>`
+                : '';
+            if (ack) {
+                ack.style.display = text ? 'block' : 'none';
+                ack.className = 'message ' + (kind === 'error' ? 'error-message' : 'success-message');
+                ack.textContent = text || '';
             }
+            if (msgDiv) msgDiv.innerHTML = html;
+        };
 
-            const teamAIdx = parseInt(document.getElementById('matchTeamA').value);
-            const teamBIdx = parseInt(document.getElementById('matchTeamB').value);
-            if (teamAIdx === teamBIdx) {
-                msgDiv.innerHTML = '<div class="message error-message">❌ Команда А и Команда Б должны отличаться</div>';
-                return;
+        window.saveMatch = async function() {
+            const btn = document.getElementById('matchSubmitBtn');
+            if (btn) btn.disabled = true;
+            window.setMatchAck('Сохраняю…', 'ok');
+            let day = null;
+            let pushed = false;
+            try {
+                if (typeof window.findGameDayById !== 'function') throw new Error('Форма ещё не загрузилась, обновите страницу');
+                day = window.findGameDayById(document.getElementById('matchDaySelect').value);
+                if (!day) throw new Error('Выберите игровой день');
+
+                const teamAIdx = parseInt(document.getElementById('matchTeamA').value, 10);
+                const teamBIdx = parseInt(document.getElementById('matchTeamB').value, 10);
+                if (!Number.isFinite(teamAIdx) || !Number.isFinite(teamBIdx) || teamAIdx === teamBIdx) {
+                    throw new Error('Команда А и Команда Б должны отличаться');
+                }
+
+                const scoreA = Math.max(0, parseInt(document.getElementById('matchScoreA').value, 10) || 0);
+                const scoreB = Math.max(0, parseInt(document.getElementById('matchScoreB').value, 10) || 0);
+                const scorersA = typeof window.readScorerRows === 'function' ? window.readScorerRows('A') : [];
+                const scorersB = typeof window.readScorerRows === 'function' ? window.readScorerRows('B') : [];
+
+                if (!Array.isArray(day.matches)) day.matches = [];
+                const matchData = { teamAIdx, teamBIdx, scoreA, scoreB, scorersA, scorersB };
+                const editing = !!window.editingMatchId;
+
+                if (editing) {
+                    const idx = day.matches.findIndex(m => m.id === window.editingMatchId);
+                    if (idx !== -1) day.matches[idx] = { id: window.editingMatchId, ...matchData };
+                } else {
+                    day.matches.push({ id: Date.now() + Math.floor(Math.random() * 1000), ...matchData });
+                    pushed = true;
+                }
+
+                await window.saveData();
+
+                window.editingMatchId = null;
+                document.getElementById('matchFormTitle').textContent = '🥅 Результат мини-игры';
+                document.getElementById('matchSubmitBtn').textContent = '🏁 Завершить матч';
+                document.getElementById('matchScoreA').value = '0';
+                document.getElementById('matchScoreB').value = '0';
+
+                if (!editing) {
+                    const next = window.winnerStaysNext(day.teams.length, teamAIdx, teamBIdx, scoreA, scoreB);
+                    document.getElementById('matchTeamA').value = String(next.teamAIdx);
+                    document.getElementById('matchTeamB').value = String(next.teamBIdx);
+                }
+                if (typeof window.onMatchTeamChange === 'function') window.onMatchTeamChange();
+                if (typeof window.renderGameDays === 'function') window.renderGameDays();
+                window.setMatchAck(editing ? '✓ Результат обновлён' : 'Ок, начат след матч', 'ok');
+            } catch (err) {
+                console.error('saveMatch:', err);
+                if (pushed && day && Array.isArray(day.matches)) day.matches.pop();
+                window.setMatchAck('❌ ' + (err && err.message ? err.message : err), 'error');
+            } finally {
+                if (btn) btn.disabled = false;
             }
-
-            const scoreA = Math.max(0, parseInt(document.getElementById('matchScoreA').value) || 0);
-            const scoreB = Math.max(0, parseInt(document.getElementById('matchScoreB').value) || 0);
-            const scorersA = window.readScorerRows('A');
-            const scorersB = window.readScorerRows('B');
-
-            const matchData = { teamAIdx, teamBIdx, scoreA, scoreB, scorersA, scorersB };
-
-            if (window.editingMatchId) {
-                const idx = day.matches.findIndex(m => m.id === window.editingMatchId);
-                if (idx !== -1) day.matches[idx] = { id: window.editingMatchId, ...matchData };
-                msgDiv.innerHTML = '<div class="message success-message">✓ Результат обновлён</div>';
-            } else {
-                day.matches.push({ id: Date.now() + Math.floor(Math.random() * 1000), ...matchData });
-                msgDiv.innerHTML = '<div class="message success-message">✓ Результат добавлен</div>';
-            }
-
-            window.saveData();
-            window.editingMatchId = null;
-            document.getElementById('matchFormTitle').textContent = '🥅 Результат мини-игры';
-            document.getElementById('matchSubmitBtn').textContent = '💾 Сохранить результат';
-            document.getElementById('matchScoreA').value = '0';
-            document.getElementById('matchScoreB').value = '0';
-            document.getElementById('scorerRows-A').innerHTML = '';
-            document.getElementById('scorerRows-B').innerHTML = '';
-            window.addScorerRow('A');
-            window.addScorerRow('B');
-            window.renderGameDays();
         };
 
         window.formatDate = function(dateStr) {

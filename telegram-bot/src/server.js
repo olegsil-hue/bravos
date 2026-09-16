@@ -36,7 +36,7 @@ function startServer() {
     }
     try {
       db.replaceState(roster, gameDays);
-      res.json({ ok: true });
+      res.json({ ok: true, roster: db.getRoster(), gameDays: db.getAllGameDaysForStats() });
     } catch (err) {
       console.error('POST /api/state упал:', err);
       res.status(500).json({ error: 'internal_error' });

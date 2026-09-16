@@ -11,6 +11,7 @@ const { smartDivide, optimizeTeamBalance } = require('./core/division');
 const gameRecording = require('./gameRecording');
 const { renderDayReportImages } = require('./imageReport');
 const { startServer } = require('./server');
+const { formatGroupLineup, formatDayResultsText, assertGroupTextIsDayOnly } = require('./core/groupMessages');
 
 const TOKEN = process.env.TELEGRAM_BOT_TOKEN;
 const GROUP_CHAT_ID = process.env.TELEGRAM_GROUP_CHAT_ID ? Number(process.env.TELEGRAM_GROUP_CHAT_ID) : null;
@@ -577,8 +578,19 @@ bot.action(/^approve_(\d+)$/, async ctx => {
   await ctx.editMessageReplyMarkup(undefined);
   await ctx.reply('✅ Утверждено. Состав сохранён. Запись игр откроется в среду в 18:00 (или запустите /start_game вручную для проверки).');
 
+  // В ГРУППУ — только имена, кто играет сегодня. Официальный рейтинг
+  // (топ-10 Саша Скрывля / Витинька / …) — это страница /rating.html,
+  // его в чат не шлём: там люди, которых сегодня не было на поле.
   if (GROUP_CHAT_ID) {
-    const announce = formatTeamsMessage(division.teams, poll.event_date);
+    const announce = formatGroupLineup(division.teams, poll.event_date);
+    const dayForGuard = {
+      date: poll.event_date,
+      teams: division.teams.map((t, i) => ({
+        name: `Команда ${i + 1}`,
+        players: (t.players || []).map(p => (typeof p === 'string' ? p : p.name)),
+      })),
+    };
+    assertGroupTextIsDayOnly(announce, dayForGuard);
     await bot.telegram.sendMessage(GROUP_CHAT_ID, announce);
   }
 });
@@ -671,16 +683,8 @@ bot.command('end_day', async ctx => {
 
   const standings = computeStandings(finished);
   const personal = computeDayPersonalStats(finished);
-  const teamName = idx => (finished.teams[idx] ? finished.teams[idx].name : `Команда ${idx + 1}`);
-
-  const textLines = [`🏆 Итоги ${finished.date}\n`, 'Итоговая таблица:'];
-  standings.forEach((s, i) => {
-    const medal = ['🥇', '🥈', '🥉'][i] || '';
-    textLines.push(`${medal} ${teamName(s.idx)} — И:${s.gp} В:${s.w} Н:${s.d} П:${s.l} Голы:${s.gf}:${s.ga} Очки:${s.pts}`);
-  });
-  textLines.push('\nЛичная статистика:');
-  personal.forEach(p => textLines.push(`${p.name} (${teamName(p.teamIdx)}) — ⚽${p.goals} 🎯${p.assists}`));
-  const text = textLines.join('\n');
+  const text = formatDayResultsText(finished, standings, personal);
+  assertGroupTextIsDayOnly(text, finished);
 
   // Картинки (таблица, журнал игр, личная статистика) — отрисовка через
   // sharp, без браузера (см. imageReport.js). Если по какой-то причине
