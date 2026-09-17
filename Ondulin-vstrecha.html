@@ -1,0 +1,376 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Ондулин — локальное приложение к встрече</title>
+  <style>
+    :root {
+      --ink: #1c1917; --muted: #57534e; --line: #e7e5e4; --paper: #fafaf9;
+      --card: #fff; --red: #b42318; --soft: #fef3f2; --dark: #14100e;
+    }
+    * { box-sizing: border-box; }
+    html, body { margin: 0; height: 100%; }
+    body { font: 16px/1.5 Calibri, "Segoe UI", Arial, sans-serif; color: var(--ink); background: var(--paper); }
+    nav.app {
+      position: sticky; top: 0; z-index: 20;
+      display: flex; gap: 6px; flex-wrap: wrap; align-items: center;
+      padding: 10px 16px; background: var(--dark); color: #fff;
+    }
+    nav.app strong { margin-right: 10px; font-size: 14px; }
+    nav.app a, nav.app button {
+      appearance: none; border: 0; background: transparent; color: #d6d3d1;
+      padding: 8px 10px; border-radius: 6px; cursor: pointer; font: inherit; text-decoration: none;
+    }
+    nav.app a.active, nav.app button.active, nav.app a:hover, nav.app button:hover { background: #292524; color: #fff; }
+    .page { display: none; padding: 28px 20px 80px; max-width: 980px; margin: 0 auto; }
+    .page.on { display: block; }
+    h1 { font-size: 30px; line-height: 1.15; margin: 0 0 12px; }
+    h2 { font-size: 22px; margin: 32px 0 10px; padding-top: 8px; border-top: 1px solid var(--line); }
+    h3 { font-size: 17px; margin: 20px 0 8px; }
+    p, li { margin: 0 0 10px; }
+    .lead { font-size: 18px; }
+    .muted { color: var(--muted); }
+    .callout { background: var(--soft); border-left: 4px solid var(--red); padding: 12px 14px; margin: 14px 0; }
+    table { width: 100%; border-collapse: collapse; font-size: 14px; background: #fff; margin: 12px 0 18px; }
+    th, td { border-bottom: 1px solid var(--line); padding: 8px; text-align: left; vertical-align: top; }
+    th { font-size: 11px; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
+    .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 10px; margin: 14px 0; }
+    .card { background: #fff; border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px; }
+    .card .n { color: var(--red); font-weight: 700; font-size: 22px; }
+    blockquote { margin: 10px 0; padding: 12px 14px; background: #fff; border-left: 4px solid var(--dark); }
+
+    /* slides */
+    #slides.page { max-width: none; padding: 0; background: #0c0a09; min-height: calc(100vh - 52px); }
+    .deck { max-width: 1280px; margin: 0 auto; padding: 16px; }
+    .slide {
+      display: none; background: #fafaf9; color: var(--ink);
+      min-height: calc(100vh - 120px); border-radius: 12px; padding: 36px 44px 48px;
+      position: relative; overflow: hidden;
+    }
+    .slide.on { display: block; }
+    .slide.dark { background: #14100e; color: #fff; }
+    .slide:before { content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 8px; background: var(--red); }
+    .k { color: var(--red); font-size: 12px; font-weight: 700; letter-spacing: .14em; text-transform: uppercase; }
+    .slide h1 { font-size: 34px; }
+    .slide.dark h1 { color: #fff; }
+    .bar { display: flex; height: 22px; border-radius: 4px; overflow: hidden; color: #fff; font-size: 12px; font-weight: 700; margin: 12px 0 16px; }
+    .bar span { display: flex; align-items: center; justify-content: center; }
+    .metrics { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
+    @media (max-width: 800px) { .metrics { grid-template-columns: 1fr 1fr; } .slide { padding: 20px; } }
+    .controls {
+      display: flex; justify-content: space-between; align-items: center;
+      color: #a8a29e; padding: 10px 8px 18px; font-size: 14px;
+    }
+    .controls button {
+      background: #292524; color: #fff; border: 0; border-radius: 8px;
+      padding: 10px 16px; cursor: pointer; font: inherit;
+    }
+    .note { margin-top: 18px; font-size: 13px; color: var(--muted); background: #fff; border: 1px dashed var(--line); padding: 10px 12px; border-radius: 8px; }
+    .slide.dark .note { background: #1c1917; color: #a8a29e; border-color: #44403c; }
+    footer.hint { font-size: 12px; color: var(--muted); margin-top: 24px; }
+    @media print {
+      nav.app, .controls, .note { display: none !important; }
+      #slides.page { display: block !important; background: #fff; }
+      .page { display: none !important; }
+      #slides.page.on, #slides { display: block !important; }
+      .slide { display: block !important; min-height: 0; page-break-after: always; border-radius: 0; box-shadow: none; }
+      body { background: #fff; }
+    }
+  </style>
+</head>
+<body>
+  <nav class="app">
+    <strong>Ондулин · встреча</strong>
+    <a href="#slides" data-page="slides">Презентация</a>
+    <a href="#pitch" data-page="pitch">О себе</a>
+    <a href="#growth" data-page="growth">Точки роста</a>
+    <a href="#qa" data-page="qa">Каверзные вопросы</a>
+    <a href="#plan" data-page="plan">90 / 180 / 365</a>
+    <a href="#market" data-page="market">Рынок</a>
+  </nav>
+
+  <section id="slides" class="page">
+    <div class="deck">
+      <article class="slide dark on" data-i="0">
+        <div class="k">К диалогу с ГД и HR</div>
+        <h1>Ондулин: семь точек роста выручки и доли</h1>
+        <p class="lead">Как быть выше падающего рынка, не сливая маржу в канал.</p>
+        <p>Гипотезы по открытым данным — на встрече сверить, не защищать.</p>
+        <p class="muted">Олег Сильченко · директор по продажам · сентябрь 2026</p>
+        <div class="note">Не читать титул. «Принёс одну рамку — где рост, если ниша уже ваша. Хочу сверить с вашими цифрами».</div>
+      </article>
+
+      <article class="slide" data-i="1">
+        <div class="k">Исходная точка</div>
+        <h1>Компания уже ниже рынка — не «падает вместе с ним»</h1>
+        <div class="metrics">
+          <div class="card"><div class="n">5,48 млрд</div>выручка торговой, 2025 · <b>−14%</b></div>
+          <div class="card"><div class="n">4,02 млрд</div>завод Ондулин-С.М. · <b>−16%</b></div>
+          <div class="card"><div class="n">−5…−8,5%</div>рынок стройки / кровли</div>
+          <div class="card"><div class="n">6,34 млрд</div>пик 2024, «оборот 6+» — план, не факт</div>
+        </div>
+        <p>Скатная кровля 2024: <b>261 млн м²</b>. ИЖС даёт ~89% спроса.</p>
+        <div class="bar">
+          <span style="width:67%;background:#1c1917">Металл 67%</span>
+          <span style="width:17%;background:#b42318">Гибкая 17%</span>
+          <span style="width:8%;background:#a16207">БВЛ 8%</span>
+          <span style="width:8%;background:#78716c">Шифер 8%</span>
+        </div>
+        <div class="callout">В еврошифере ~99% уже ваши — доля внутри ниши не растёт. Конкурент: металл, гибкая, ремонт шифера. Задача года: <b>выше рынка на 5–8 п.п.</b> без отгрузки в полный склад.</div>
+        <div class="note">Спросить: какой рынок берёте как бенчмарк? План от 5,48 или от 6,34?</div>
+      </article>
+
+      <article class="slide" data-i="2">
+        <div class="k">Карта роста</div>
+        <h1>Семь точек. Не новый продукт — канал и чек</h1>
+        <table>
+          <tr><th>#</th><th>Точка</th><th>Суть</th></tr>
+          <tr><td>01</td><td>Sell-out вместо sell-in</td><td>Сток топ-20. Не грузить полный склад после всплеска 2024.</td></tr>
+          <tr><td>02</td><td>JBP с топ-20 дистрибьюторов</td><td>20 имён ≈ 60–70% денег. Взаимная выгода, не скидка.</td></tr>
+          <tr><td>03</td><td>Микс и система</td><td>Смарт → Черепица / Ондувилла + конёк, гвозди, лента.</td></tr>
+          <tr><td>04</td><td>ONDUTISS в каждый заказ</td><td>Единственный фронт, где долю можно отнять.</td></tr>
+          <tr><td>05</td><td>Замена шифера и хозблок</td><td>Доля скатной кровли 8% → 8,3–8,6%.</td></tr>
+          <tr><td>06</td><td>DIY как доля в сети</td><td>Лемана ПРО, Петрович, Максидом. Полка комплекта.</td></tr>
+          <tr><td>07</td><td>E-com в правилах канала</td><td>Сначала MAP, потом GMV. Лид дилеру, не обход.</td></tr>
+        </table>
+        <div class="note">Порядок: сначала 01–02, e-com последним и с ограничением. Не открывать с маркетплейсов.</div>
+      </article>
+
+      <article class="slide" data-i="3">
+        <div class="k">Точки 01–02</div>
+        <h1>Дистрибьюторы: главный P&amp;L</h1>
+        <p>~100 ключевых, пул ~500. Лечить минус рынка скидкой и вагоном — повторить 2025.</p>
+        <div class="grid">
+          <div class="card"><b>ABC</b><p>Топ-20 лично + РСМ. Спящих из 500 не раздувать.</p></div>
+          <div class="card"><b>Sell-out</b><p>Дни запаса. Где сток высокий — помогаем продать, не грузим.</p></div>
+          <div class="card"><b>JBP</b><p>Квартал: объём, микс, attach, покрытие, обучение, коридор цены.</p></div>
+          <div class="card"><b>Заработок</b><p>MAP и территория, комплект на складе. Скидка — последний рычаг.</p></div>
+        </div>
+        <div class="note">Связь с кейсом: доля в Связном 26% — тот же JBP, клиент теперь дистрибьютор. Эффект стока 80–120 млн, покрытия 50–100.</div>
+      </article>
+
+      <article class="slide" data-i="4">
+        <div class="k">Точка 03</div>
+        <h1>Микс и система: деньги с м²</h1>
+        <div class="grid">
+          <div class="card"><b>Ондулин Смарт</b><p>Эконом / замена / хозблок. 490–510 ₽/м². Не единственный ответ на металл.</p></div>
+          <div class="card"><b>Черепица Ондулин</b><p>Средний сегмент, DIY-формат, гарантия 20 лет.</p></div>
+          <div class="card"><b>Ондувилла</b><p>Премиум внутри линейки, выше чек. Не конкурировать скидкой Смарта.</p></div>
+          <div class="card"><b>Доборы и гвозди</b><p>Конёк, ендова, гвозди. Attach +2–3 п.п. к счёту.</p></div>
+        </div>
+        <p>Цель микса — в JBP и KPI РСМ. Не отгружать лист без конька и гвоздей у партнёра. Эффект: микс 50–80 млн · доборы 80–120 млн.</p>
+      </article>
+
+      <article class="slide" data-i="5">
+        <div class="k">Точки 04–05</div>
+        <h1>Где берётся доля: плёнка и чужой м²</h1>
+        <div class="grid">
+          <div class="card">
+            <div class="k">04 ONDUTISS</div>
+            <h3>Не монополист — долю отнимают</h3>
+            <p>Изоспан, ТехноНИКОЛЬ, Megaflex. Attach к кровле + каркас/фасад/металл. KPI — доля плёнки в кровельном счёте. Эффект 80–150 млн.</p>
+          </div>
+          <div class="card">
+            <div class="k">05 Шифер и хозблок</div>
+            <h3>8% → 8,3–8,6% скатной кровли</h3>
+            <p>Шифер падает ~9,5% CAGR — донор. Комплект без усиления стропил. Хозблок: тихий, лёгкий, DIY vs шумный металл. ИЖС 2025: ввод +2%, новые коттеджи −40%.</p>
+          </div>
+        </div>
+      </article>
+
+      <article class="slide" data-i="6">
+        <div class="k">Точки 06–07</div>
+        <h1>DIY и e-com: витрина, не война с сотней партнёров</h1>
+        <div class="grid">
+          <div class="card">
+            <b>06 DIY · Лемана ПРО, Петрович, Максидом</b>
+            <p>Доля категории на полке. Матрица: Смарт + DIY-черепица + доборы + плёнка. Цена сети не самая дешёвая в городе. Пилот доли как 26% в Связном. 40–80 млн.</p>
+          </div>
+          <div class="card" style="background:var(--soft)">
+            <b>07 E-com · сначала правила, потом объём</b>
+            <p>Без MAP маркетплейс съест топ-100 быстрее, чем даст 100 млн. Официальные карточки, лид дилеру. Год 1: 40–80 млн в рамке.</p>
+          </div>
+        </div>
+        <div class="note">Первым предложением по e-com — ограничение, не GMV. «4 млрд в LG научили КАК. Эта роль требует ещё КОГДА НЕ НАДО».</div>
+      </article>
+
+      <article class="slide" data-i="7">
+        <div class="k">Мост к выручке</div>
+        <h1>Три сценария. База — факт 2025: 5,48 млрд</h1>
+        <table>
+          <tr><th>Сценарий</th><th>Выручка</th><th>К рынку −5%</th><th>Смысл</th></tr>
+          <tr><td>A Дисциплина</td><td>5,37 (−2%)</td><td>+3 п.п.</td><td>Перестали проигрывать</td></tr>
+          <tr><td><b>B Выше рынка</b></td><td><b>5,48–5,64 (0…+3%)</b></td><td><b>+5…8 п.п.</b></td><td>Честная цель года 1</td></tr>
+          <tr><td>C План «6+»</td><td>6,0–6,15 (+10…12%)</td><td>+15…17 п.п.</td><td>Только если канал пустой</td></tr>
+        </table>
+        <div class="metrics">
+          <div class="card">Сток +80…120</div>
+          <div class="card">Микс +50…80</div>
+          <div class="card">Доборы +80…120</div>
+          <div class="card">ONDUTISS +80…150</div>
+          <div class="card">Покрытие +50…100</div>
+          <div class="card">DIY/e-com +40…80</div>
+          <div class="card"><b>Минус рынка −270</b></div>
+        </div>
+        <p class="muted">Без ответа «план от 5,48 или от 6,34?» обещать C нельзя.</p>
+      </article>
+
+      <article class="slide" data-i="8">
+        <div class="k">Как это делается</div>
+        <h1>План, команда, 90 / 180 / 365</h1>
+        <div class="grid">
+          <div class="card"><b>3 месяца · перенять</b><p>Все РО + завод. Ride-along с 7 РСМ. ABC-100. Сток топ-20. Правила каналов. Пилот JBP на 5–7. Людей не трогать.</p></div>
+          <div class="card"><b>6 месяцев · система</b><p>Оценка 7 РСМ. KPI не только отгрузка: микс, attach, покрытие, цена. JBP топ-20. Омниканальная мотивация.</p></div>
+          <div class="card"><b>12 месяцев · результат</b><p>Сценарий B. Сам в полях в сезон. Честный прогноз ГД за квартал до конца года.</p></div>
+        </div>
+      </article>
+
+      <article class="slide" data-i="9">
+        <div class="k">Что сверить</div>
+        <h1>Восемь вопросов, без которых цифры — пожелание</h1>
+        <ol>
+          <li>План 2026 от какой базы — 5,48 или 6,34?</li>
+          <li>Победа года: объём, маржа, доля, команда, завод?</li>
+          <li>Утечка 2025: сток, цена, микс, DIY-конфликт, поле?</li>
+          <li>Сколько партнёров дают 50%? Grand Line / ТСТН / «Твой Мир»?</li>
+          <li>Сток топ-20. Есть ли sell-out?</li>
+          <li>Правила маркетплейса? Кто продаёт на Ozon/WB?</li>
+          <li>DIY и РСМ в одном городе — кто решает цену?</li>
+          <li>Формула мотивации поля. Что нельзя трогать 90 дней?</li>
+        </ol>
+      </article>
+
+      <article class="slide" data-i="10">
+        <div class="k">Как я это веду</div>
+        <h1>Четыре правила</h1>
+        <div class="card" style="margin-bottom:10px"><b>Доля — в скатной кровле, не в БВЛ.</b> 99% еврошифера не KPI.</div>
+        <div class="card" style="margin-bottom:10px"><b>Партнёр зарабатывает — тогда остаётся.</b> Защита цены важнее акции.</div>
+        <div class="card" style="margin-bottom:10px"><b>E-com не обгоняет правила.</b> MAP и лид дилеру.</div>
+        <div class="card"><b>План живёт на территории.</b> Не раскладывается до РСМ — пожелание. 90 дней сезон не ломаем.</div>
+      </article>
+
+      <article class="slide dark" data-i="11">
+        <div class="k">Итог</div>
+        <h1>Рост — не новый ондулин. Это доля, чек системы и дисциплина канала.</h1>
+        <p class="lead">Выше рынка на 5–8 п.п. за 12 месяцев — выполнимая ставка. Возврат к «6+ млрд» — только после стока и согласованной базы плана.</p>
+        <p>Готов идти в филиалы и к топ-партнёрам. Сначала сверить ваши цифры.</p>
+        <p class="muted">Олег Сильченко</p>
+      </article>
+
+      <div class="controls">
+        <button type="button" id="prev">← Назад</button>
+        <span id="counter">1 / 12 · стрелки клавиатуры · F — на весь экран</span>
+        <button type="button" id="next">Вперёд →</button>
+      </div>
+    </div>
+  </section>
+
+  <section id="pitch" class="page">
+    <h1>Как рассказать о себе</h1>
+    <p class="lead">Не открывать с маркетплейсов. Порядок: Евросеть → LG мобильный → LG онлайн → Ондулин.</p>
+    <h2>90 секунд</h2>
+    <blockquote>Олег Сильченко. 20 лет в коммерции, 12 из них в LG. Начинал в Евросети закупщиком: 5300 магазинов, доля сети до 25%, сам сидел напротив вендоров. Потом в LG: мобильный бизнес — утроил выручку, доля 15%, внутри Связного 26%, направление в прибыль. Затем онлайн-каналы с нуля: с 25 млн в месяц до 500, оборот больше 4 млрд, маркетплейсы +750%. Команда до 40, цена в своих и чужих магазинах.<br><br>Смотрю Ондулин не как «меньший бизнес». Мой последний контур — те же 4 миллиарда. Здесь чуть больше денег и полная коммерция. Бренд нарицательный, 2025-й по открытым цифрам ниже рынка. Кровлю изучу. Каналы, долю и команду — уже собирал.</blockquote>
+    <p>Стоп. Вопрос им: почему 2025 хуже рынка — спрос, сток канала или исполнение?</p>
+    <h2>Якорь, если жмут «вы из электроники»</h2>
+    <blockquote>Кровлю объясните за месяц. Канал, цену, долю и команду я уже собирал на четырёх миллиардах. Это у вас сломано сильнее, чем рецептура листа.</blockquote>
+    <p class="muted">Полный разбор — вкладка «Каверзные вопросы».</p>
+  </section>
+
+  <section id="growth" class="page">
+    <h1>Точки роста — шпаргалка</h1>
+    <p>Рабочая цель года: сценарий B, <b>выше рынка на 5–8 п.п.</b> (5,48–5,64 млрд при рынке −5%).</p>
+    <table>
+      <tr><th>#</th><th>Точка</th><th>Эффект, млн ₽</th></tr>
+      <tr><td>01</td><td>Sell-out / сток топ-20</td><td>80–120</td></tr>
+      <tr><td>02</td><td>JBP и покрытие дистрибьюторов</td><td>50–100</td></tr>
+      <tr><td>03</td><td>Микс Смарт → черепица / Ондувилла</td><td>50–80</td></tr>
+      <tr><td>03b</td><td>Доборы и гвозди</td><td>80–120</td></tr>
+      <tr><td>04</td><td>ONDUTISS</td><td>80–150</td></tr>
+      <tr><td>06–07</td><td>DIY и e-com в правилах</td><td>40–80</td></tr>
+      <tr><td></td><td>Минус объёма рынка ~5%</td><td>≈ −270</td></tr>
+    </table>
+    <div class="callout">Долю 99% внутри еврошифера не ставить целью. Цель — доля скатной кровли и деньги с м².</div>
+    <h2>Каналы</h2>
+    <p><b>Дистрибьюторы</b> — главный P&amp;L. ABC, sell-out, JBP топ-20, MAP. Партнёры по смыслу: Grand Line, ТСТН, «Твой Мир», региональные дилеры.</p>
+    <p><b>DIY</b> — Лемана ПРО, Петрович, Максидом. Полка комплекта, обучение зала, цена не убивает партнёра.</p>
+    <p><b>E-com</b> — Ozon, Wildberries, сайт. Сначала кто имеет право продавать и MAP, потом объём. Лид дилеру.</p>
+  </section>
+
+  <section id="qa" class="page">
+    <h1>Каверзные вопросы</h1>
+    <h2>Вы из электроники. Зачем вы?</h2>
+    <blockquote>Вам нужен не лучший знаток битума. Нужен человек, который умеет отвоевать долю в канале на падающем рынке. Рынок я разложил: ИЖС, металл две трети, гибкая растёт, шифер сжимается, еврошифер около 8% и почти весь ваш. 2025-й ниже рынка — это коммерческая проблема. Продукт закрою за 90 дней на заводе. Не выучивается за 90 дней: 100 дистрибьюторов vs Лемана vs маркетплейс. Этим я занимался 20 лет, с обеих сторон стола.</blockquote>
+    <h2>Уход из LG (для HR)</h2>
+    <blockquote>Два полных цикла: мобильный и онлайн. Второй закрыл: с нуля до 4+ млрд, первое место среди рынков LG по e-com. Дальше внутри роли «директор онлайн-каналов» полный коммерческий P&amp;L не открывался. Ушёл сам, с передачей. Рекомендацию может дать HRD Павлова. Не «устали от корпорации». Закончил работу и иду туда, где контур шире.</blockquote>
+    <p class="muted">Дальше молчать. Не добирать благодарственными речами.</p>
+    <h2>Меньший бизнес / вы же e-com</h2>
+    <p>Последний P&amp;L &gt;4 млрд, Ондулин ~5,5. Деньги сопоставимы. Онлайн — последний слой карьеры: до него Евросеть и 5 лет федералов + дистрибьюторы. Сначала канал партнёра, потом GMV.</p>
+    <h2>План 6,3 млрд, рынок −5%. Обещаете?</h2>
+    <p>Обещаю рычаги, не чудо. Если база 2025 — выше рынка, около нуля или небольшой плюс. Если база 2024 — это +15 п.п. к рынку. Сначала сток топ-20.</p>
+    <h2>Сломаете дистрибьюцию маркетплейсами</h2>
+    <p>Первое согласование с ГД — правила каналов. Пока их нет, больших e-com инициатив не будет.</p>
+  </section>
+
+  <section id="plan" class="page">
+    <h1>Система и команда</h1>
+    <p>10 в прямом подчинении (DIY, e-com, аналитик) + 7 РСМ и ~40 полевых. Командировки 20–30%.</p>
+    <h2>90 дней</h2>
+    <p>Все филиалы и завод. Ride-along с каждым РСМ. Сплит продукт/канал/регион. Сток топ-20. Черновик правил каналов <b>до</b> e-com инициатив. Пилот JBP на 5–7. Людей не трогать. Сезон не ломать.</p>
+    <h2>6 месяцев</h2>
+    <p>Оценка 7 РСМ, письменные планы развития. KPI: выполнение, микс, attach, покрытие, дисциплина цены. Омниканальная мотивация. JBP на топ-20.</p>
+    <h2>12 месяцев</h2>
+    <p>Сценарий B. Сам в полях в сезон. Честный прогноз ГД за квартал до конца года.</p>
+    <h2>Фильтр рекрутера</h2>
+    <p>Мотивация «большой → меньший». Экспертиза рынка без лекции. План, дистрибьюторы, команда. Лидер: процессы, люди, результат. Отношения 360°: ГД, peers, поле, партнёры.</p>
+  </section>
+
+  <section id="market" class="page">
+    <h1>Рынок и продукт — коротко</h1>
+    <p>Завод: Нижний Новгород, Окская Гавань, 11, с 2008. Целлюлоза + битум, без асбеста. ГД: Андрей Нежкин. Москва + региональные офисы.</p>
+    <p><b>Продукт:</b> Onduline Smart (гидрозамок), Черепица Ондулин, Ондувилла, линейка DIY, доборы, ONDUTISS (плёнки, мембраны, ленты).</p>
+    <p><b>УТП:</b> бесшумность, нет коррозии, лёгкий вес, монтаж без специнструмента.</p>
+    <p><b>Клиенты:</b> B2C — ИЖС, дача, ремонт, DIY. B2B — бригады, дилеры, сети.</p>
+    <p><b>Конкуренты:</b> Металл Профиль, Grand Line; Shinglas, Дёке; шифер СКАИ / BF Tech. Плёнки: Изоспан, ТехноНИКОЛЬ.</p>
+    <p class="muted">Цифры выручки — открытые агрегаторы ФНС на сентябрь 2026. Сплиты внутри компании на встрече сверить.</p>
+    <footer class="hint">Файл автономный: откройте в Chrome / Edge / Safari. Презентация — вкладка «Презентация», стрелки ← →, F — полный экран. Печать слайдов: Ctrl/Cmd+P на этой вкладке.</footer>
+  </section>
+
+  <script>
+    const pages = [...document.querySelectorAll(".page")];
+    const links = [...document.querySelectorAll("nav.app a")];
+    const slides = [...document.querySelectorAll(".slide")];
+    let i = 0;
+    function showPage(id) {
+      pages.forEach(p => p.classList.toggle("on", p.id === id));
+      links.forEach(a => a.classList.toggle("active", a.dataset.page === id));
+      if (id === "slides") location.hash = "slides";
+      else location.hash = id;
+    }
+    function go(n) {
+      i = (n + slides.length) % slides.length;
+      slides.forEach((s, k) => s.classList.toggle("on", k === i));
+      document.getElementById("counter").textContent = (i + 1) + " / " + slides.length + " · стрелки клавиатуры · F — на весь экран";
+    }
+    links.forEach(a => a.addEventListener("click", e => {
+      e.preventDefault();
+      showPage(a.dataset.page);
+    }));
+    document.getElementById("prev").onclick = () => go(i - 1);
+    document.getElementById("next").onclick = () => go(i + 1);
+    document.addEventListener("keydown", e => {
+      const onSlides = document.getElementById("slides").classList.contains("on");
+      if (!onSlides) return;
+      if (e.key === "ArrowRight" || e.key === " " || e.key === "PageDown") { e.preventDefault(); go(i + 1); }
+      if (e.key === "ArrowLeft" || e.key === "PageUp") { e.preventDefault(); go(i - 1); }
+      if (e.key === "f" || e.key === "F") {
+        if (!document.fullscreenElement) document.documentElement.requestFullscreen?.();
+        else document.exitFullscreen?.();
+      }
+    });
+    const start = (location.hash || "#slides").replace("#", "") || "slides";
+    showPage(["slides","pitch","growth","qa","plan","market"].includes(start) ? start : "slides");
+    go(0);
+  </script>
+</body>
+</html>
